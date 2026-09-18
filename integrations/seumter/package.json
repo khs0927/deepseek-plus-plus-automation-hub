@@ -1,0 +1,33 @@
+{
+  "name": "seumter-automation",
+  "version": "1.0.0",
+  "description": "세움터(EAIS) 건축행정시스템 자동화 통합 솔루션",
+  "main": "src/index.js",
+  "scripts": {
+    "checklist:building": "node src/modules/checklist_building.js",
+    "checklist:location": "node src/modules/checklist_location.js",
+    "checklist:all": "node src/modules/checklist_all.js",
+    "permit:sign": "node src/modules/permit_inspection.js",
+    "overview": "node src/modules/building_overview.js",
+    "fill:overview": "node src/modules/fill_project_overview.js",
+    "start": "node src/index.js",
+    "pipeline:all": "node src/modules/pipeline.js",
+    "launch:edge": "node src/utils/launch_edge.js",
+    "launch:edge:restart": "node src/utils/launch_edge.js --restart",
+    "upload:drawings": "node src/modules/upload_drawings_direct_exact.js",
+    "bira:step1": "node src/bira/modules/step1_overview.js",
+    "bira:step2": "node src/bira/modules/step2_floors.js",
+    "bira:step3": "node src/bira/modules/step3_drawings.js",
+    "bira:step4": "node src/bira/modules/step4_checklist.js",
+    "bira:all": "node src/bira/modules/pipeline_all.js",
+    "mcp": "node src/mcp/server.js",
+    "test": "node --test tests/**/*.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "axios": "^1.20.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "playwright": "^1.50.0"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "projectId": "template_project",
+  "projectName": "[지역] [동] [지번] [인허가구분]",
+  "step1": {
+    "kind1": "신규",
+    "kind2": "대수선",
+    "loca_sido": "시도",
+    "loca_gugun": "시군구",
+    "loca_dong": "법정동",
+    "loca_bunji": "000-0",
+    "location_free": "0",
+    "ower_name": "건축주",
+    "ower_addr": "건축주 주소",
+    "land_use": "own",
+    "youngdo_jigu": "용도지역",
+    "change_1": "[변경 전 내용]",
+    "change_2": "[변경 후 내용]",
+    "change_3": "[비고 내용]",
+    "b_land_width": "0.00",
+    "b_build_width": "0.00",
+    "b_gunfe": "0.00",
+    "b_yj_width": "0.00",
+    "b_youngjak": "0.00",
+    "b_yen_width": "0.00",
+    "b_yj_width_sin": "0.00",
+    "b_floor0": "0",
+    "b_floor1": "1",
+    "b_dong": "1",
+    "b_youngdo": "용도",
+    "b_youngdo_sub": "세부용도",
+    "b_youngdo2": "",
+    "b_youngdo_sub2": "",
+    "b_gujo": "구조",
+    "b_height": "0.00",
+    "b_jogung_width": "0",
+    "b_parking": "0",
+    "b_outside": "외부마감",
+    "bd_name": "건축사",
+    "bd_office": "건축사사무소",
+    "bd_addr": "사무소 주소"
+  },
+  "step2": {
+    "floors": [
+      { "floor": "지상 1층", "gujo": "구조", "youngdo": "용도", "etc": "세부용도", "width": "0.00" }
+    ]
+  },
+  "step3": { "filesDir": "", "mappings": {} }
+}
