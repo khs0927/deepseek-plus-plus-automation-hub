@@ -1,0 +1,9 @@
+{
+  "name": "com.deepseek_pp.shell",
+  "description": "DeepSeek++ Custom Shell MCP Host",
+  "path": "C:\\Users\\HOSAM\\.gemini\\antigravity\\scratch\\deepseek-pp-custom\\native-host\\shell-mcp-host.bat",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://kdmpkkahkhdmdhfkdihkopikgcocbpbf/"
+  ]
+}

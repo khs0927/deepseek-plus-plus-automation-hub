@@ -1,0 +1,8 @@
+{
+  "port": 8932,
+  "defaultEngine": "auto",
+  "geminiApiKey": "",
+  "groqApiKey": "",
+  "cdpUrl": "http://127.0.0.1:9223",
+  "maxConcurrentSubagents": 5
+}

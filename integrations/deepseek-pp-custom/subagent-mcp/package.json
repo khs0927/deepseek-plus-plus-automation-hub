@@ -1,0 +1,9 @@
+{
+  "name": "deepseek-subagent-mcp",
+  "version": "1.0.0",
+  "description": "Subagent Orchestration MCP Server for DeepSeek++",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

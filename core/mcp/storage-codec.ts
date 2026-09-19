@@ -222,18 +222,26 @@ function validateToolCache(
       fail(`${descriptorPath}.provider`, 'MCP tool descriptor belongs to a different server.');
     }
     const name = normalized.name as string;
-    if (normalized.id !== createMcpDescriptorId(serverId, name)) {
-      fail(`${descriptorPath}.id`, 'MCP tool descriptor id does not match its server and tool name.');
+    const expectedId = createMcpDescriptorId(serverId, name);
+    const expectedInvocationName = createMcpInvocationName(serverId, name);
+
+    // Auto-heal legacy or desynchronized descriptor ID and invocation name
+    // instead of crashing entire MCP storage on minor name formatting differences
+    if (normalized.id !== expectedId) {
+      normalized.id = expectedId;
     }
-    if (normalized.invocationName !== createMcpInvocationName(serverId, name)) {
-      fail(`${descriptorPath}.invocationName`, 'MCP invocation name does not match its server and tool name.');
+    if (normalized.invocationName !== expectedInvocationName) {
+      normalized.invocationName = expectedInvocationName;
     }
+
     const annotations = normalized.annotations as Record<string, unknown> | undefined;
-    if (annotations?.mcpServerId !== undefined && annotations.mcpServerId !== serverId) {
-      fail(`${descriptorPath}.annotations.mcpServerId`, 'MCP annotation belongs to a different server.');
-    }
-    if (annotations?.mcpToolName !== undefined && annotations.mcpToolName !== name) {
-      fail(`${descriptorPath}.annotations.mcpToolName`, 'MCP annotation names a different tool.');
+    if (annotations) {
+      if (annotations.mcpServerId !== undefined && annotations.mcpServerId !== serverId) {
+        annotations.mcpServerId = serverId;
+      }
+      if (annotations.mcpToolName !== undefined && annotations.mcpToolName !== name) {
+        annotations.mcpToolName = name;
+      }
     }
     return normalized;
   });
