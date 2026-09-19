@@ -1,0 +1,44 @@
+{
+  "capturedAt": "2026-09-19",
+  "extensionVersion": "1.14.0",
+  "description": "Sanitized live capability inventory. Runtime URLs, commands, environment values, OAuth state, cookies, and tokens are intentionally excluded.",
+  "bundledSkills": [
+    "deep-discuss",
+    "morph-ppt",
+    "morph-ppt-3d",
+    "officecli",
+    "officecli-academic-paper",
+    "officecli-data-dashboard",
+    "officecli-docx",
+    "officecli-financial-model",
+    "officecli-pitch-deck",
+    "officecli-pptx",
+    "officecli-styles",
+    "officecli-word-form",
+    "officecli-xlsx",
+    "review-spd",
+    "spec-driven-develop"
+  ],
+  "autoActivation": {
+    "everyMessage": true,
+    "firstMessage": true,
+    "session-watchdog": true,
+    "subagent-orchestrator": true
+  },
+  "mcpServers": [
+    { "name": "Subagent Manager", "enabled": true, "status": "ready", "toolCount": 9 },
+    { "name": "Playwright", "enabled": true, "status": "ready", "toolCount": 25 },
+    { "name": "Smithery (khs0927)", "enabled": true, "status": "ready", "toolCount": 200 },
+    { "name": "Zapier", "enabled": true, "status": "ready", "toolCount": 17 },
+    { "name": "Multimodal Vision", "enabled": true, "status": "ready", "toolCount": 3 },
+    { "name": "Shell Local", "enabled": true, "status": "ready", "toolCount": 8 }
+  ],
+  "sourcePaths": [
+    "core/skill/",
+    "core/mcp/",
+    "entrypoints/background/mcp-handlers.ts",
+    "entrypoints/background/skill-handlers.ts",
+    "integrations/mcp/mcp-servers.example.json",
+    "integrations/native-host/"
+  ]
+}
