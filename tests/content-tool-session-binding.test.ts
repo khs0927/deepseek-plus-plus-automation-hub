@@ -53,6 +53,22 @@ describe('content new-chat tool session binding', () => {
     });
   });
 
+  it('normalizes whitespace in an already browser-bound grant session', async () => {
+    const result = await bindNewChatToolCallToBrowserSession(TOOL_CALL, '  existing-session  ', {
+      readChatSessionId: () => 'other-session',
+    });
+
+    expect(result?.source?.chatSessionId).toBe('existing-session');
+  });
+
+  it('does not wait when the call has no local authorization grant', async () => {
+    const result = await bindNewChatToolCallToBrowserSession(TOOL_CALL, undefined, {
+      readChatSessionId: () => null,
+    });
+
+    expect(result).toBe(TOOL_CALL);
+  });
+
   it('preserves a call already aligned with an existing browser-bound grant', async () => {
     const alignedCall: ToolCall = {
       ...TOOL_CALL,

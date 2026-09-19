@@ -25,15 +25,20 @@ export async function bindNewChatToolCallToBrowserSession(
   authorizationChatSessionId: string | null | undefined,
   options: ToolSessionBindingOptions,
 ): Promise<ToolCall | null> {
+  // `undefined` means there is no local grant for this call, not a new-chat
+  // grant awaiting route binding. Preserve the normal authorization rejection
+  // path instead of introducing a binding delay.
+  if (authorizationChatSessionId === undefined) return call;
   if (!call.source) return null;
 
-  if (authorizationChatSessionId !== null && authorizationChatSessionId !== undefined) {
-    if (call.source.chatSessionId === authorizationChatSessionId) return call;
+  const authorizedChatSessionId = normalizeChatSessionId(authorizationChatSessionId);
+  if (authorizedChatSessionId) {
+    if (call.source.chatSessionId === authorizedChatSessionId) return call;
     return {
       ...call,
       source: {
         ...call.source,
-        chatSessionId: authorizationChatSessionId,
+        chatSessionId: authorizedChatSessionId,
       },
     };
   }
@@ -47,6 +52,10 @@ export async function bindNewChatToolCallToBrowserSession(
       chatSessionId,
     },
   };
+}
+
+function normalizeChatSessionId(value: string | null | undefined): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 export function waitForBrowserOwnedChatSession(
