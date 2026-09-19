@@ -227,7 +227,7 @@
         "lastError": null,
         "limits": {
           "maxResultBytes": 128000,
-          "maxToolCount": 8
+          "maxToolCount": 128
         },
         "secrets": [],
         "status": "ready",

@@ -29,7 +29,7 @@ describe('createMultimodalMcpPresetInput', () => {
       requestMs: MULTIMODAL_MCP_REQUEST_TIMEOUT_MS,
       discoveryMs: MULTIMODAL_MCP_DISCOVERY_TIMEOUT_MS,
     });
-    expect(preset.allowlist).toEqual({ mode: 'allow', toolNames: ['vision_status'] });
+    expect(preset.allowlist).toEqual({ mode: 'allow', toolNames: ['vision_status', 'analyze_images', 'analyze_video'] });
     expect(preset.execution).toEqual({ enabled: false, mode: 'auto' });
   });
 });

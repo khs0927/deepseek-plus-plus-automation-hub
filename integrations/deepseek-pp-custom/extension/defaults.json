@@ -227,7 +227,7 @@
         "lastError": null,
         "limits": {
           "maxResultBytes": 128000,
-          "maxToolCount": 8
+          "maxToolCount": 128
         },
         "secrets": [],
         "status": "ready",
@@ -14305,7 +14305,7 @@
               ],
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__invoke_subagent",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_invoke_subagent",
             "name": "invoke_subagent",
             "outputSchema": {
               "type": "object"
@@ -14343,7 +14343,7 @@
               ],
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__check_subagent_status",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_check_subagent_status",
             "name": "check_subagent_status",
             "outputSchema": {
               "type": "object"
@@ -14373,7 +14373,7 @@
               "properties": {},
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__list_subagents",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_list_subagents",
             "name": "list_subagents",
             "outputSchema": {
               "type": "object"
@@ -14411,7 +14411,7 @@
               ],
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__kill_subagent",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_kill_subagent",
             "name": "kill_subagent",
             "outputSchema": {
               "type": "object"
@@ -14459,7 +14459,7 @@
               },
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__set_subagent_config",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_set_subagent_config",
             "name": "set_subagent_config",
             "outputSchema": {
               "type": "object"
@@ -14489,7 +14489,7 @@
               "properties": {},
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__list_deepseek_sessions",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_list_deepseek_sessions",
             "name": "list_deepseek_sessions",
             "outputSchema": {
               "type": "object"
@@ -14524,7 +14524,7 @@
               },
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__get_session_logs",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_get_session_logs",
             "name": "get_session_logs",
             "outputSchema": {
               "type": "object"
@@ -14567,7 +14567,7 @@
               },
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__wake_up_session",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_wake_up_session",
             "name": "wake_up_session",
             "outputSchema": {
               "type": "object"
@@ -14606,7 +14606,7 @@
               },
               "type": "object"
             },
-            "invocationName": "mcp__82ce1613_d822_4284_90fb_8601d0f29982__configure_watchdog",
+            "invocationName": "mcp_t_82ce1613_d822_4284_90fb_8601d0f29982_configure_watchdog",
             "name": "configure_watchdog",
             "outputSchema": {
               "type": "object"

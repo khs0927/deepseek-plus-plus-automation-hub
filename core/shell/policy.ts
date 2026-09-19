@@ -49,7 +49,7 @@ export function createShellMcpPresetInput(
     },
     limits: {
       maxResultBytes: 128_000,
-      maxToolCount: 8,
+      maxToolCount: 128,
     },
     allowlist: {
       mode: 'allow',
@@ -81,5 +81,18 @@ export function buildShellAllowlistUpgrade(allowlist: McpToolAllowlist): McpTool
   return {
     mode: 'allow',
     toolNames: [...allowlist.toolNames, ...missing],
+  };
+}
+
+export function buildShellLimitsUpgrade(
+  limits?: McpServerConfig['limits'],
+): McpServerConfig['limits'] | null {
+  if (!limits) {
+    return { maxResultBytes: 128_000, maxToolCount: 128 };
+  }
+  if ((limits.maxToolCount ?? 0) >= 32) return null;
+  return {
+    ...limits,
+    maxToolCount: 128,
   };
 }

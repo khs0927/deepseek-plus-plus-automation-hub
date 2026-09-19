@@ -84,7 +84,7 @@ export function createMultimodalMcpPresetInput(
     },
     allowlist: {
       mode: 'allow',
-      toolNames: ['vision_status'],
+      toolNames: ['vision_status', 'analyze_images', 'analyze_video'],
     },
     execution: {
       enabled: options.executionEnabled ?? false,

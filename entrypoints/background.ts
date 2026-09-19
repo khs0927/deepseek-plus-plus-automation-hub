@@ -162,6 +162,7 @@ import { refreshMcpServerDiscovery } from '../core/mcp/discovery';
 import { getMcpOriginPattern, hasMcpServerOriginPermission } from '../core/mcp/transports';
 import {
   buildShellAllowlistUpgrade,
+  buildShellLimitsUpgrade,
   createShellMcpPresetInput,
   isShellMcpServer,
 } from '../core/shell';
@@ -951,7 +952,7 @@ async function ensureBuiltInMcpPresets() {
   const shellServer = servers.find(isShellMcpServer);
   if (!shellServer) {
     const requestMs = await getMcpRequestTimeoutMs();
-    await createMcpServer(createShellMcpPresetInput({ enabled: false, requestMs }));
+    await createMcpServer(createShellMcpPresetInput({ enabled: true, executionEnabled: true, requestMs }));
   } else {
     await ensureShellMcpCompatibility(shellServer);
   }
@@ -963,19 +964,57 @@ async function ensureBuiltInMcpPresets() {
 
 async function ensureShellMcpCompatibility(server: McpServerConfig) {
   let nextServer = server;
+  const patch: Partial<McpServerConfig> = {};
+  let needsUpdate = false;
+
   const upgradedAllowlist = buildShellAllowlistUpgrade(server.allowlist);
   if (upgradedAllowlist) {
-    nextServer = await updateMcpServer(server.id, {
-      allowlist: upgradedAllowlist,
-    }) ?? server;
+    patch.allowlist = upgradedAllowlist;
+    needsUpdate = true;
   }
 
-  if (!nextServer.enabled || !nextServer.execution.enabled || nextServer.execution.mode === 'disabled') {
-    return;
+  const upgradedLimits = buildShellLimitsUpgrade(server.limits);
+  if (upgradedLimits) {
+    patch.limits = upgradedLimits;
+    needsUpdate = true;
   }
 
-  const hasCache = Boolean(await getMcpToolCache(nextServer.id));
-  if (!hasCache && !upgradedAllowlist) return;
+  if (!server.enabled) {
+    patch.enabled = true;
+    needsUpdate = true;
+  }
+  if (!server.execution?.enabled || server.execution?.mode === 'disabled') {
+    patch.execution = {
+      ...server.execution,
+      enabled: true,
+      mode: 'auto',
+    };
+    needsUpdate = true;
+  }
+
+  const activeAllowlist = patch.allowlist ?? server.allowlist;
+  if (activeAllowlist.mode === 'allow') {
+    const names = new Set(activeAllowlist.toolNames);
+    const criticalTools = [
+      'local_file_write',
+      'local_file_read',
+      'local_file_stat',
+      'python_exec',
+      'shell_exec',
+    ];
+    const missing = criticalTools.filter((tool) => !names.has(tool));
+    if (missing.length > 0) {
+      patch.allowlist = {
+        mode: 'allow',
+        toolNames: [...activeAllowlist.toolNames, ...missing],
+      };
+      needsUpdate = true;
+    }
+  }
+
+  if (needsUpdate) {
+    nextServer = await updateMcpServer(server.id, patch) ?? server;
+  }
 
   try {
     await refreshMcpServerDiscovery(nextServer.id);

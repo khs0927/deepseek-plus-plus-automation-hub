@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildShellAllowlistUpgrade,
+  buildShellLimitsUpgrade,
   createShellMcpPresetInput,
   DEFAULT_SHELL_MCP_ALLOWLIST_TOOL_NAMES,
   isShellMcpServer,
@@ -94,5 +95,18 @@ describe('createShellMcpPresetInput', () => {
       displayName: 'Anything',
       transport: { kind: 'native_messaging', nativeHost: 'com.example.other' },
     })).toBe(false);
+  });
+
+  it('sets maxToolCount to at least 64 so all 12+ native shell tools can be discovered', () => {
+    const preset = createShellMcpPresetInput();
+    expect(preset.limits?.maxToolCount).toBeGreaterThanOrEqual(64);
+  });
+
+  it('upgrades legacy Shell servers with small maxToolCount to 128', () => {
+    expect(buildShellLimitsUpgrade({ maxResultBytes: 128_000, maxToolCount: 8 })).toEqual({
+      maxResultBytes: 128_000,
+      maxToolCount: 128,
+    });
+    expect(buildShellLimitsUpgrade({ maxResultBytes: 128_000, maxToolCount: 128 })).toBeNull();
   });
 });
