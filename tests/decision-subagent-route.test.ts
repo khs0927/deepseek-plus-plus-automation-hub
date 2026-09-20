@@ -52,7 +52,7 @@ describe('JEV Subagent engine routing', () => {
 
     const routed = await routeSubagentCall({
       call,
-      currentDescriptors: [descriptor],
+      currentDescriptors: subagentProviderDescriptors(descriptor),
     });
 
     expect(routed.payload).toMatchObject({ engine: 'gemini' });
@@ -83,7 +83,7 @@ describe('JEV Subagent engine routing', () => {
 
     const routed = await routeSubagentCall({
       call,
-      currentDescriptors: [descriptor],
+      currentDescriptors: subagentProviderDescriptors(descriptor),
     });
 
     expect(routed).toEqual(call);
@@ -118,7 +118,7 @@ describe('JEV Subagent engine routing', () => {
 
     const routed = await routeSubagentCall({
       call,
-      currentDescriptors: [descriptor],
+      currentDescriptors: subagentProviderDescriptors(descriptor),
     });
 
     expect(routed.payload).toMatchObject({ engine: 'auto' });
@@ -162,7 +162,7 @@ describe('JEV Subagent engine routing', () => {
 
     const routed = await routeSubagentCall({
       call,
-      currentDescriptors: [descriptor],
+      currentDescriptors: subagentProviderDescriptors(descriptor),
     });
     const tasks = (routed.payload as { tasks: Array<{ engine: string }> }).tasks;
 
@@ -192,11 +192,26 @@ describe('JEV Subagent engine routing', () => {
 
     await expect(routeSubagentCall({
       call,
-      currentDescriptors: [descriptor],
+      currentDescriptors: subagentProviderDescriptors(descriptor),
     })).resolves.toEqual(call);
     expect(decisionTraceBuffer.list()).toEqual([]);
   });
 });
+
+function subagentProviderDescriptors(
+  primary: ToolDescriptor,
+): ToolDescriptor[] {
+  const signature = [
+    'invoke_subagent',
+    'invoke_subagent_batch',
+    'check_subagent_status',
+    'list_subagents',
+    'kill_subagent',
+  ];
+  return signature.map((name) => (
+    name === primary.name ? primary : subagentDescriptor(name)
+  ));
+}
 
 function subagentDescriptor(name: string): ToolDescriptor {
   return {
@@ -204,7 +219,7 @@ function subagentDescriptor(name: string): ToolDescriptor {
     provider: {
       kind: 'mcp',
       id: 'subagent-manager',
-      displayName: 'Subagent Manager',
+      displayName: 'Subagent Manager & Session Watchdog (DeepSeek++)',
       transport: 'sse',
     },
     name,
