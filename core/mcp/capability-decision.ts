@@ -42,7 +42,11 @@ export interface McpCapabilityDecisionProjectionInput {
 export async function projectMcpCapabilityDescriptorsWithDecision(
   input: McpCapabilityDecisionProjectionInput,
 ): Promise<McpCapabilityProjection> {
-  const baseline = projectMcpCapabilityDescriptors(input);
+  const baseline = projectMcpCapabilityDescriptors({
+    descriptors: input.descriptors,
+    settings: input.settings,
+    intent: input.intent,
+  });
   const runtime = getDecisionRuntimeConfig();
 
   if (runtime.mode === 'disabled' || !runtime.provider || !input.intent.trim()) {
@@ -93,12 +97,12 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
       purpose: 'mcp_rank',
       mode: runtime.mode,
       provider: result.provider || runtime.provider.id,
-      model: result.model,
+      ...(result.model ? { model: result.model } : {}),
       candidateIds: candidates.map((candidate) => candidate.id),
       selectedIds,
       confidence: result.confidence,
       threshold: MCP_DECISION_CONFIDENCE_THRESHOLD,
-      fallbackReason,
+      ...(fallbackReason ? { fallbackReason } : {}),
       latencyMs: Date.now() - startedAt,
       applied,
     });
@@ -106,7 +110,9 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
     if (!applied) return baseline;
 
     return projectMcpCapabilityDescriptors({
-      ...input,
+      descriptors: input.descriptors,
+      settings: input.settings,
+      intent: input.intent,
       adaptiveCandidateOrder: selectedIds,
     });
   } catch {
