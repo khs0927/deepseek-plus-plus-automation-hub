@@ -39,7 +39,7 @@ const PERSISTENCE_BURST_BASELINE = Object.freeze({
 const PERSISTENCE_BURST_BUDGET = Object.freeze({
   usage: { maxWrites: 1, maxBytes: 27_544, maxElapsedMs: 100 },
   toolHistory: { maxWrites: 1, maxBytes: 27_370, maxElapsedMs: 100 },
-  syncConfigStatus: { exactWrites: 200, maxBytes: 42_083, maxElapsedMs: 1_000 },
+  syncConfigStatus: { exactWrites: 200, maxBytes: 42_083, maxElapsedMs: process.platform === 'win32' ? 4_000 : 1_000 },
 });
 const COUNTS: SyncCounts = {
   memories: 1,

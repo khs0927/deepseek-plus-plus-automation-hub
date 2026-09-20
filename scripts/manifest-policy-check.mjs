@@ -11,17 +11,17 @@ const targets = [
   {
     browser: 'chrome',
     manifestPath: 'dist/chrome-mv3/manifest.json',
-    permissions: ['storage', 'alarms', 'nativeMessaging', 'contextMenus', 'offscreen', 'debugger', 'tabs', 'identity', 'sidePanel'],
+    permissions: ['storage', 'unlimitedStorage', 'alarms', 'nativeMessaging', 'contextMenus', 'offscreen', 'debugger', 'tabs', 'identity', 'sidePanel'],
   },
   {
     browser: 'edge',
     manifestPath: 'dist/edge-mv3/manifest.json',
-    permissions: ['storage', 'alarms', 'nativeMessaging', 'contextMenus', 'offscreen', 'debugger', 'tabs', 'identity', 'sidePanel'],
+    permissions: ['storage', 'unlimitedStorage', 'alarms', 'nativeMessaging', 'contextMenus', 'offscreen', 'debugger', 'tabs', 'identity', 'sidePanel'],
   },
   {
     browser: 'firefox',
     manifestPath: 'dist/firefox-mv3/manifest.json',
-    permissions: ['storage', 'alarms', 'nativeMessaging', 'contextMenus', 'identity'],
+    permissions: ['storage', 'unlimitedStorage', 'alarms', 'nativeMessaging', 'contextMenus', 'identity'],
   },
 ];
 

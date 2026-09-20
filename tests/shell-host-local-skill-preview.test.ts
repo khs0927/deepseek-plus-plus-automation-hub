@@ -146,9 +146,13 @@ describe('shell native host logLine resilience', () => {
     expect(log).toContain('tools/call name=shell_status');
   });
 
+  const UNWRITABLE_LOG_FILE = process.platform === 'win32'
+    ? 'Z:\\nonexistent-dir-dpp-test-xyz\\unwritable.log'
+    : '/nonexistent-dir-dpp-test-xyz/unwritable.log';
+
   it('returns a normal response when DPP_LOG_FILE points to an unwritable path', async () => {
     const response = await callNativeHost('shell_status', {}, {
-      DPP_LOG_FILE: '/nonexistent-dir-dpp-test-xyz/unwritable.log',
+      DPP_LOG_FILE: UNWRITABLE_LOG_FILE,
     });
     expect(response.error).toBeUndefined();
     expect(response.result?.structuredContent?.data?.platform).toBeTruthy();
@@ -156,7 +160,7 @@ describe('shell native host logLine resilience', () => {
 
   it('writes a stderr diagnostic when DPP_LOG_FILE cannot be initialized', async () => {
     const { response, stderr } = await callNativeHostWithStderr('shell_status', {}, {
-      DPP_LOG_FILE: '/nonexistent-dir-dpp-test-xyz/unwritable.log',
+      DPP_LOG_FILE: UNWRITABLE_LOG_FILE,
     });
     expect(response.error).toBeUndefined();
     expect(stderr).toContain('failed to initialize log file');

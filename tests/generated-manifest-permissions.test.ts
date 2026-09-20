@@ -4,6 +4,7 @@ import { createManifest } from '../wxt.config';
 
 const CHROMIUM_PERMISSIONS = [
   'storage',
+  'unlimitedStorage',
   'alarms',
   'nativeMessaging',
   'contextMenus',
@@ -16,6 +17,7 @@ const CHROMIUM_PERMISSIONS = [
 
 const FIREFOX_PERMISSIONS = [
   'storage',
+  'unlimitedStorage',
   'alarms',
   'nativeMessaging',
   'contextMenus',

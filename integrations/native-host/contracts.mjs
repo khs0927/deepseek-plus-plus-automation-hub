@@ -54,6 +54,16 @@ const SESSION_IDLE_TIMEOUT_MS = 300_000; // 5min; aligns with resident-tool idle
 const SESSION_MAX_OUTPUT_BYTES = MAX_OUTPUT_BYTES;
 const SESSION_MARKER_PREFIX = '__DPP_SESSION_END__';
 
+// --- Background tasks ---
+const MAX_TASKS = 32;
+const MAX_TASK_OUTPUT_BYTES = MAX_OUTPUT_BYTES;
+
+// --- Directory listing / file search ---
+const MAX_DIR_LIST_ENTRIES = 500;
+const MAX_FILE_SEARCH_HITS = 100;
+const MAX_FILE_SEARCH_BYTES_PER_FILE = 256 * 1024;
+const MAX_FILE_SEARCH_NAME_LENGTH = 500;
+
 const TOOL_DEFINITIONS = [
   {
     name: 'github_control',
@@ -282,6 +292,91 @@ const TOOL_DEFINITIONS = [
     },
     annotations: { operation: 'write', risk: 'medium' },
   },
+  {
+    name: 'local_dir_list',
+    title: 'List Local Directory',
+    description: 'List the files and subfolders of a local directory without starting a shell. Returns structured JSON with name, type, size, and modified time.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute or home-relative local directory to list.' },
+        limit: { type: 'integer', minimum: 1, maximum: MAX_DIR_LIST_ENTRIES, description: 'Maximum entries to return. Default 500.' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'local_file_search',
+    title: 'Search Local Files',
+    description: 'Search files under a local directory by file name or by content. The pattern is a regular expression. Content search reads only bounded, in-scope files.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute or home-relative local directory to search.' },
+        pattern: { type: 'string', description: 'Regular expression to match the file name (default) or each line (content=true).' },
+        content: { type: 'boolean', description: 'When true, search inside file contents instead of file names. Default false.' },
+        max_depth: { type: 'integer', minimum: 0, description: 'Maximum directory depth to walk. Default 6.' },
+      },
+      required: ['path', 'pattern'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'task_spawn',
+    title: 'Start Background Task',
+    description: 'Start a long-running command (dev server, build, watcher, daemon) detached from the shell so it does not block other tool calls. Returns a task_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The command to run in the background.' },
+        name: { type: 'string', description: 'Optional human-readable label for the task. Defaults to the command itself.' },
+        cwd: { type: 'string', description: 'Working directory. Defaults to user home.' },
+        env: { type: 'object', additionalProperties: { type: 'string' }, description: 'Additional environment variables to set on the task.' },
+      },
+      required: ['command'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'write', risk: 'high' },
+  },
+  {
+    name: 'task_status',
+    title: 'Check Background Task Status',
+    description: 'Report a background task state (running/exited/failed/killed), exit code, and the recent stdout/stderr tail window.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task id returned by task_spawn.' },
+        tail_bytes: { type: 'integer', minimum: 0, description: 'Maximum bytes of stdout/stderr tail to return. Default 128000.' },
+      },
+      required: ['task_id'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'task_kill',
+    title: 'Stop Background Task',
+    description: 'Forcefully terminate a background task and its entire process tree.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task id returned by task_spawn.' },
+      },
+      required: ['task_id'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'write', risk: 'medium' },
+  },
+  {
+    name: 'task_list',
+    title: 'List Background Tasks',
+    description: 'List every background task currently known to the host, running or finished.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { operation: 'read', risk: 'low' },
+  },
 ];
 
 // --- Logging ---
@@ -312,6 +407,12 @@ export {
   MAX_PYTHON_OUTPUT_BYTES,
   MAX_PYTHON_TIMEOUT_MS,
   MCP_PROTOCOL_VERSION,
+  MAX_DIR_LIST_ENTRIES,
+  MAX_FILE_SEARCH_BYTES_PER_FILE,
+  MAX_FILE_SEARCH_HITS,
+  MAX_FILE_SEARCH_NAME_LENGTH,
+  MAX_TASKS,
+  MAX_TASK_OUTPUT_BYTES,
   PYTHON_NOT_FOUND_MESSAGE,
   PYTHON_PACKAGE_CHECKS,
   SESSION_IDLE_TIMEOUT_MS,

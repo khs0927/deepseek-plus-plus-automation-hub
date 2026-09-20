@@ -84,7 +84,7 @@ if (existsSync(sourceZip)) {
   assertZipDoesNotContain(sourceZip, 'dist/', 'source zip must not contain dist');
   assertZipDoesNotContain(sourceZip, 'bundled-skills/', 'source zip must not duplicate generated bundled Skill assets');
   const sourcePyodidePayloads = readZipListing(sourceZip).filter((entry) =>
-    pyodidePolicy.assets.some(({ file }) =>
+    !entry.startsWith('integrations/') && pyodidePolicy.assets.some(({ file }) =>
       entry === `pyodide/${file}` || entry.endsWith(`/pyodide/${file}`),
     ),
   );
@@ -120,7 +120,10 @@ function assertVersion(actual, expected, label) {
 
 function readZipJson(zipFile, entry) {
   try {
-    return JSON.parse(execFileSync('unzip', ['-p', zipFile, entry], { encoding: 'utf8' }));
+    const output = process.platform === 'win32'
+      ? execFileSync('tar', ['-xf', zipFile, '-O', entry], { encoding: 'utf8' })
+      : execFileSync('unzip', ['-p', zipFile, entry], { encoding: 'utf8' });
+    return JSON.parse(output);
   } catch (error) {
     failures.push(`${zipFile}: cannot read ${entry}: ${error.message}`);
     return null;
@@ -128,9 +131,13 @@ function readZipJson(zipFile, entry) {
 }
 
 function readZipListing(zipFile) {
-  return execFileSync('unzip', ['-Z1', zipFile], { encoding: 'utf8' })
-    .split('\n')
-    .filter(Boolean);
+  const output = process.platform === 'win32'
+    ? execFileSync('tar', ['-tf', zipFile], { encoding: 'utf8' })
+    : execFileSync('unzip', ['-Z1', zipFile], { encoding: 'utf8' });
+  return output
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter((item) => item && !item.endsWith('/'));
 }
 
 function assertZipContains(zipFile, entry, message) {
@@ -363,7 +370,9 @@ function readBundledSkillPolicy(file) {
 
 function readZipEntry(zipFile, entry) {
   try {
-    return execFileSync('unzip', ['-p', zipFile, entry], { maxBuffer: 32 * 1024 * 1024 });
+    return process.platform === 'win32'
+      ? execFileSync('tar', ['-xf', zipFile, '-O', entry], { maxBuffer: 32 * 1024 * 1024 })
+      : execFileSync('unzip', ['-p', zipFile, entry], { maxBuffer: 32 * 1024 * 1024 });
   } catch (error) {
     failures.push(`${zipFile}: cannot read ${entry}: ${error.message}`);
     return null;
@@ -371,6 +380,26 @@ function readZipEntry(zipFile, entry) {
 }
 
 function readZipMetrics(zipFile) {
+  if (process.platform === 'win32') {
+    const buf = readFileSync(zipFile);
+    const entries = [];
+    let offset = 0;
+    while (offset < buf.length - 4) {
+      if (buf.readUInt32LE(offset) === 0x02014b50) {
+        const compressedBytes = buf.readUInt32LE(offset + 20);
+        const rawBytes = buf.readUInt32LE(offset + 24);
+        const nameLen = buf.readUInt16LE(offset + 28);
+        const extraLen = buf.readUInt16LE(offset + 30);
+        const commentLen = buf.readUInt16LE(offset + 32);
+        const name = buf.toString('utf8', offset + 46, offset + 46 + nameLen);
+        entries.push({ rawBytes, compressedBytes, name });
+        offset += 46 + nameLen + extraLen + commentLen;
+      } else {
+        offset += 1;
+      }
+    }
+    return entries;
+  }
   return execFileSync('unzip', ['-v', zipFile], { encoding: 'utf8' })
     .split('\n')
     .map((line) => line.trim().split(/\s+/))

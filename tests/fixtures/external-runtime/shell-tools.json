@@ -6,29 +6,65 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "command": { "type": "string", "description": "The shell command to execute." },
-        "cwd": { "type": "string", "description": "Working directory. Defaults to user home." },
-        "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Additional environment variables to set." },
-        "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 600000, "description": "Timeout in milliseconds. Default 120000." }
+        "command": {
+          "type": "string",
+          "description": "The shell command to execute."
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory. Defaults to user home."
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Additional environment variables to set."
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 600000,
+          "description": "Timeout in milliseconds. Default 120000."
+        }
       },
-      "required": ["command"],
+      "required": [
+        "command"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "write", "risk": "high" }
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
   },
   {
     "name": "shell_status",
     "title": "Shell Host Status",
     "description": "Report host health, platform, shell, current working directory, and Node.js version.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
-    "annotations": { "operation": "read", "risk": "low" }
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
   },
   {
     "name": "python_status",
     "title": "Python Interpreter Status",
     "description": "Report whether a local Python interpreter is available and which quick-validation packages can be imported.",
-    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false },
-    "annotations": { "operation": "read", "risk": "low" }
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
   },
   {
     "name": "python_exec",
@@ -37,13 +73,26 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "code": { "type": "string", "description": "Short Python code to execute. Keep it focused on computation or validation." },
-        "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 30000, "description": "Timeout in milliseconds. Default 10000." }
+        "code": {
+          "type": "string",
+          "description": "Short Python code to execute. Keep it focused on computation or validation."
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 30000,
+          "description": "Timeout in milliseconds. Default 10000."
+        }
       },
-      "required": ["code"],
+      "required": [
+        "code"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "execute", "risk": "high" }
+    "annotations": {
+      "operation": "execute",
+      "risk": "high"
+    }
   },
   {
     "name": "local_skill_preview",
@@ -52,13 +101,27 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "rootPath": { "type": "string", "description": "Absolute local folder path that contains one or more SKILL.md files." },
-        "selectedPaths": { "type": "array", "items": { "type": "string" }, "description": "Optional SKILL.md paths relative to rootPath. When omitted, previews all detected Skills up to the limit." }
+        "rootPath": {
+          "type": "string",
+          "description": "Absolute local folder path that contains one or more SKILL.md files."
+        },
+        "selectedPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional SKILL.md paths relative to rootPath. When omitted, previews all detected Skills up to the limit."
+        }
       },
-      "required": ["rootPath"],
+      "required": [
+        "rootPath"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "read", "risk": "medium" }
+    "annotations": {
+      "operation": "read",
+      "risk": "medium"
+    }
   },
   {
     "name": "local_folder_pick",
@@ -67,12 +130,21 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "title": { "type": "string", "description": "Optional prompt shown in the native folder picker." },
-        "defaultPath": { "type": "string", "description": "Optional local folder path to use as the initial picker location." }
+        "title": {
+          "type": "string",
+          "description": "Optional prompt shown in the native folder picker."
+        },
+        "defaultPath": {
+          "type": "string",
+          "description": "Optional local folder path to use as the initial picker location."
+        }
       },
       "additionalProperties": false
     },
-    "annotations": { "operation": "read", "risk": "low" }
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
   },
   {
     "name": "local_file_stat",
@@ -80,11 +152,21 @@
     "description": "Return whether a local path exists, whether it is a file or directory, its size, and its last modified timestamp.",
     "inputSchema": {
       "type": "object",
-      "properties": { "path": { "type": "string", "description": "Absolute or home-relative local path to inspect." } },
-      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute or home-relative local path to inspect."
+        }
+      },
+      "required": [
+        "path"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "read", "risk": "medium" }
+    "annotations": {
+      "operation": "read",
+      "risk": "medium"
+    }
   },
   {
     "name": "local_file_read",
@@ -93,14 +175,31 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "path": { "type": "string", "description": "Absolute or home-relative local file path to read." },
-        "start": { "type": "integer", "minimum": 0, "description": "Starting character offset. Default 0." },
-        "max_chars": { "type": "integer", "minimum": 1, "maximum": 100000, "description": "Maximum characters to return. Default 16000." }
+        "path": {
+          "type": "string",
+          "description": "Absolute or home-relative local file path to read."
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Starting character offset. Default 0."
+        },
+        "max_chars": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000,
+          "description": "Maximum characters to return. Default 16000."
+        }
       },
-      "required": ["path"],
+      "required": [
+        "path"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "read", "risk": "medium" }
+    "annotations": {
+      "operation": "read",
+      "risk": "medium"
+    }
   },
   {
     "name": "local_file_write",
@@ -109,15 +208,33 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "path": { "type": "string", "description": "Absolute or home-relative local file path to write." },
-        "content": { "type": "string", "description": "UTF-8 text content to write exactly as provided." },
-        "append": { "type": "boolean", "description": "When true, append to the file instead of overwriting it." },
-        "create_directories": { "type": "boolean", "description": "When true, create missing parent directories. Default true." }
+        "path": {
+          "type": "string",
+          "description": "Absolute or home-relative local file path to write."
+        },
+        "content": {
+          "type": "string",
+          "description": "UTF-8 text content to write exactly as provided."
+        },
+        "append": {
+          "type": "boolean",
+          "description": "When true, append to the file instead of overwriting it."
+        },
+        "create_directories": {
+          "type": "boolean",
+          "description": "When true, create missing parent directories. Default true."
+        }
       },
-      "required": ["path", "content"],
+      "required": [
+        "path",
+        "content"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "write", "risk": "high" }
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
   },
   {
     "name": "shell_session_begin",
@@ -126,13 +243,28 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "cwd": { "type": "string", "description": "Initial working directory. Defaults to user home." },
-        "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Additional environment variables to set on the session shell." },
-        "shell": { "type": "string", "description": "Shell binary to use. Defaults to the shell reported by shell_status." }
+        "cwd": {
+          "type": "string",
+          "description": "Initial working directory. Defaults to user home."
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Additional environment variables to set on the session shell."
+        },
+        "shell": {
+          "type": "string",
+          "description": "Shell binary to use. Defaults to the shell reported by shell_status."
+        }
       },
       "additionalProperties": false
     },
-    "annotations": { "operation": "write", "risk": "high" }
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
   },
   {
     "name": "shell_session_exec",
@@ -141,14 +273,31 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "session_id": { "type": "string", "description": "Session id returned by shell_session_begin." },
-        "command": { "type": "string", "description": "The shell command to execute in the session." },
-        "timeout_ms": { "type": "integer", "minimum": 1000, "maximum": 600000, "description": "Timeout in milliseconds. Default 120000." }
+        "session_id": {
+          "type": "string",
+          "description": "Session id returned by shell_session_begin."
+        },
+        "command": {
+          "type": "string",
+          "description": "The shell command to execute in the session."
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 600000,
+          "description": "Timeout in milliseconds. Default 120000."
+        }
       },
-      "required": ["session_id", "command"],
+      "required": [
+        "session_id",
+        "command"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "write", "risk": "high" }
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
   },
   {
     "name": "shell_session_end",
@@ -156,10 +305,184 @@
     "description": "Close a persistent shell session opened by shell_session_begin and release its child process. After this, the session_id is no longer valid.",
     "inputSchema": {
       "type": "object",
-      "properties": { "session_id": { "type": "string", "description": "Session id returned by shell_session_begin." } },
-      "required": ["session_id"],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "Session id returned by shell_session_begin."
+        }
+      },
+      "required": [
+        "session_id"
+      ],
       "additionalProperties": false
     },
-    "annotations": { "operation": "write", "risk": "medium" }
+    "annotations": {
+      "operation": "write",
+      "risk": "medium"
+    }
+  },
+  {
+    "name": "local_dir_list",
+    "title": "List Local Directory",
+    "description": "List the files and subfolders of a local directory without starting a shell. Returns structured JSON with name, type, size, and modified time.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute or home-relative local directory to list."
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "description": "Maximum entries to return. Default 500."
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
+  },
+  {
+    "name": "local_file_search",
+    "title": "Search Local Files",
+    "description": "Search files under a local directory by file name or by content. The pattern is a regular expression. Content search reads only bounded, in-scope files.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute or home-relative local directory to search."
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Regular expression to match the file name (default) or each line (content=true)."
+        },
+        "content": {
+          "type": "boolean",
+          "description": "When true, search inside file contents instead of file names. Default false."
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum directory depth to walk. Default 6."
+        }
+      },
+      "required": [
+        "path",
+        "pattern"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
+  },
+  {
+    "name": "task_spawn",
+    "title": "Start Background Task",
+    "description": "Start a long-running command (dev server, build, watcher, daemon) detached from the shell so it does not block other tool calls. Returns a task_id.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "The command to run in the background."
+        },
+        "name": {
+          "type": "string",
+          "description": "Optional human-readable label for the task. Defaults to the command itself."
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory. Defaults to user home."
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Additional environment variables to set on the task."
+        }
+      },
+      "required": [
+        "command"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
+  },
+  {
+    "name": "task_status",
+    "title": "Check Background Task Status",
+    "description": "Report a background task state (running/exited/failed/killed), exit code, and the recent stdout/stderr tail window.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Task id returned by task_spawn."
+        },
+        "tail_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximum bytes of stdout/stderr tail to return. Default 128000."
+        }
+      },
+      "required": [
+        "task_id"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
+  },
+  {
+    "name": "task_kill",
+    "title": "Stop Background Task",
+    "description": "Forcefully terminate a background task and its entire process tree.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Task id returned by task_spawn."
+        }
+      },
+      "required": [
+        "task_id"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "write",
+      "risk": "medium"
+    }
+  },
+  {
+    "name": "task_list",
+    "title": "List Background Tasks",
+    "description": "List every background task currently known to the host, running or finished.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "read",
+      "risk": "low"
+    }
   }
 ]

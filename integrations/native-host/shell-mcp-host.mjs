@@ -14,6 +14,8 @@ import { createNativeEnvelopeDispatcher } from './runtime-dispatcher.mjs';
 import { createSessionProvider } from './session-provider.mjs';
 import { createSkillToolHandlers } from './skill-provider.mjs';
 import { createMcpGatewayHandlers } from './mcp-gateway-provider.mjs';
+import { createTaskToolHandlers } from './task-provider.mjs';
+import { createDirectoryToolHandlers } from './directory-provider.mjs';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageMetadata = readShellHostPackageMetadata();
@@ -21,6 +23,7 @@ const logger = createHostLogger();
 const hostEnvironmentReady = Promise.resolve(initializeHostEnvironment(packageRoot, logger.logLine));
 
 const sessionProvider = createSessionProvider({ logLine: logger.logLine });
+const taskProvider = createTaskToolHandlers({ logLine: logger.logLine });
 const router = createNativeRouter({
   toolDefinitions: TOOL_DEFINITIONS,
   toolHandlerGroups: [
@@ -29,6 +32,8 @@ const router = createNativeRouter({
     createSkillToolHandlers(),
     createPickerToolHandlers(),
     createFileToolHandlers({ logLine: logger.logLine }),
+    createDirectoryToolHandlers({ logLine: logger.logLine }),
+    taskProvider.handlers,
     sessionProvider.handlers,
   ],
   logger,
@@ -50,6 +55,7 @@ async function main() {
   }
   await dispatcher.settle();
   sessionProvider.shutdown();
+  taskProvider.shutdown();
 }
 
 main().catch(error => {

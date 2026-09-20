@@ -59,6 +59,12 @@ describe('createShellMcpPresetInput', () => {
         'local_file_stat',
         'local_file_read',
         'local_file_write',
+        'local_dir_list',
+        'local_file_search',
+        'task_spawn',
+        'task_status',
+        'task_kill',
+        'task_list',
       ],
     });
   });
@@ -78,6 +84,12 @@ describe('createShellMcpPresetInput', () => {
         'local_file_stat',
         'local_file_read',
         'local_file_write',
+        'local_dir_list',
+        'local_file_search',
+        'task_spawn',
+        'task_status',
+        'task_kill',
+        'task_list',
       ],
     });
   });

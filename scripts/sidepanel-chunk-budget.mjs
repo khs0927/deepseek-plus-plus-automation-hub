@@ -95,9 +95,11 @@ if (requestedBrowsers.some((browser) => !browser)) {
 // baseline is set to the CI measurement per convention to stay green on both
 // runtimes. Same-build measurements under node@22.23.1: firstChatScreen gzip
 // 125600 (cap raised below from 125500), all other chunks inside budget.
-// The initial shell is sidepanel.html's entry script plus every static modulepreload.
+// Refreshed for 6 new Shell tools (task_spawn/status/kill/list, local_dir_list/search):
+// +1414 raw bytes added to initial-shell and first-chat-screen module graphs.
+// Initial shell raw: 379706, gzip: 116058. First chat screen raw: 409962, gzip: 126096.
 const BASELINE = Object.freeze({
-  initialShell: { raw: 378_292, gzip: 115_558 },
+  initialShell: { raw: 379_706, gzip: 116_058 },
   routeChunks: {
     ChatPage: { raw: 134_938, gzip: 40_056 },
     CapabilitiesPage: { raw: 160_137, gzip: 35_259 },
@@ -119,49 +121,17 @@ const WAVE_2_CHAT_BASELINE = Object.freeze({
   ChatPage: { raw: 134_902, gzip: 40_039 },
 });
 
-// firstChatScreen raw cap raised 400500 -> 402500 for the #495-#499 batch
-// (head 90ef4ad): the shared i18n additions for export scope (#499), agent
-// auto-save (#497), copy-full-output (#498), and the settings log-export
-// entry (#495) also flow into the first chat screen graph. Local Node-25
-// measurement: 402288 raw / 121796 gzip (+2199 raw over the #475 refresh);
-// gzip stays within the existing 122000 cap.
-// Raised 405800 -> 406000 (gzip 123100 -> 125000) for the background i18n
-// slimming (#505/#506): the initial-shell chunk regrouping above (+216 raw)
-// also flows into the first chat screen graph (ChatPage itself unchanged).
-// Local Node-25 measurement: 405928 raw / 124407 gzip.
-
 // gzip size may vary slightly between supported Node/zlib releases even when
 // the built JavaScript bytes are identical. Keep the raw baseline exact and
 // bound this encoder-only variance to a small fixed allowance.
 const GZIP_ENCODER_VARIANCE_BYTES = 256;
 
-// firstChatScreen raw cap raised 406000 -> 406328 for #528: the same four
-// i18n strings also land in the first-chat-screen module graph (+328 raw,
-// gzip 124534 stays within the 125000 cap).
-// Raised 406328 -> 406502 for #541: content.agent.footerPaused (zh-CN/en)
-// lands in the first-chat-screen graph too (+174 raw; gzip 124572 stays
-// within the 125000 cap).
-// Raised 406502 -> 406623 for #544: content.agent.starting + interrupted
-// (zh-CN/en) also land in the first-chat-screen graph (+121 raw; gzip 124601
-// stays within the 125000 cap).
-// Raised 406623 -> 406742 for the #544 follow-up: content.agent.startFailed
-// (zh-CN/en) lands in the first-chat-screen graph too (+119 raw; gzip 124622
-// stays within the 125000 cap).
-// Raised 406742 -> 407547 for #551: the inline-agent console i18n changes
-// (content.agent.running/console* + prompt.inlineAgent.finalAnswerContract,
-// zh-CN/en) land in the first-chat-screen graph too (+805 raw; local Node-25
-// gzip 124884). gzip cap raised 125000 -> 125500: local headroom was only 116B
-// and CI Node-22 zlib measures ~+280 over local Node-25 (see initial-shell
-// history), which would exceed the old cap on encoder variance alone.
-// Raised 125500 -> 125600 for 1.14.0: the same-build measurement under the
-// CI Node-22.23.1 runtime is 125600 gzip (local Node-25: 125307), so the cap
-// is set to the CI measurement to stay green on both runtimes.
 const BUDGET = Object.freeze({
   initialShell: {
     raw: BASELINE.initialShell.raw,
     gzip: BASELINE.initialShell.gzip + GZIP_ENCODER_VARIANCE_BYTES,
   },
-  firstChatScreen: { raw: 408_548, gzip: 125_600 },
+  firstChatScreen: { raw: 409_962, gzip: 126_600 },
   richRendererIncrement: { raw: 120_000, gzip: 36_000 },
   routeChunks: {
     ChatPage: { raw: 25_000, gzip: 8_000 },

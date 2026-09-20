@@ -57,7 +57,7 @@ describe('Shell Native Host external contract', () => {
     });
   });
 
-  it('compares the exact 12-tool order, complete host schemas, and TypeScript risks', async () => {
+  it('compares the exact tool order, complete host schemas, and TypeScript risks', async () => {
     const response = await callHost(nativeEnvelope('tools/list', undefined, 'tools'));
     const tools = response.result.tools as Array<{
       name: string;
