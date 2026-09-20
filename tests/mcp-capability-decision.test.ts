@@ -132,7 +132,7 @@ describe('MCP capability decision projection', () => {
     await projectMcpCapabilityDescriptorsWithDecision({
       descriptors: [alpha, beta, ...helpers],
       settings: createAdaptiveSettings(),
-      intent: 'search docs password=super-secret-value token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456',
+      intent: 'search docs password=super-secret-value repository credential ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456',
     });
   });
 
