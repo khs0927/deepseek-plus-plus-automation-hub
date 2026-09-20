@@ -7,6 +7,27 @@ npm ci
 Copy-Item .env.example .env
 ~~~
 
+다른 Windows/macOS/Linux 컴퓨터에서 처음 설치할 때는 저장소 루트에서 다음 명령을 우선 사용한다. Node.js 18.17 이상을 검사하고 lockfile 기준으로 의존성을 설치한 뒤 선택한 브라우저의 production build를 만든다.
+
+~~~bash
+npm run setup -- --browser all
+~~~
+
+Chrome/Edge/Chromium은 브라우저가 생성한 로컬 확장 ID가 필요하다. 먼저 `dist/chrome-mv3` 또는 `dist/edge-mv3`를 개발자 모드에서 로드하고 표시된 ID로 Native Host를 등록한다.
+
+~~~bash
+npm run setup -- --browser chrome --chrome-extension-id <확장ID>
+npm run setup -- --browser edge --edge-extension-id <확장ID>
+~~~
+
+Firefox는 manifest에 고정된 확장 ID가 있어 다음 단계까지 자동 처리할 수 있다.
+
+~~~bash
+npm run setup -- --browser firefox
+~~~
+
+설치 상태는 `npm run setup:status -- --browser chrome` 또는 `npm run shell:status -- --browser chrome`로 확인한다. 브라우저 보안 정책 때문에 저장소가 임의로 Chrome/Edge에 확장을 자동 로드할 수는 없다. 최초 1회 개발자 모드에서 확장을 로드하거나 Web Store 버전을 설치해야 한다.
+
 .env는 .gitignore 대상이며 절대 커밋하지 않는다. GitHub는 가능하면 gh auth login과 OS keyring을 사용한다.
 
 ## 2. DeepSeek++ 확장 검증

@@ -1,4 +1,8 @@
 import type { WebdavSyncConfig } from '../types';
+import {
+  fetchWithSyncTimeout,
+  type SyncRequestOptions,
+} from './request';
 
 function buildUrl(config: WebdavSyncConfig, file?: string): string {
   const base = config.url.replace(/\/+$/, '');
@@ -25,46 +29,61 @@ function toBase64Utf8(value: string): string {
   return btoa(binary);
 }
 
-export async function webdavTest(config: WebdavSyncConfig): Promise<void> {
+export async function webdavTest(
+  config: WebdavSyncConfig,
+  request: SyncRequestOptions = {},
+): Promise<void> {
   const url = config.url.replace(/\/+$/, '') + '/';
-  const res = await fetch(url, {
+  const res = await fetchWithSyncTimeout(url, {
     method: 'PROPFIND',
     headers: headers(config, { Depth: '0' }),
-  });
+  }, request);
   if (res.status === 401) throw new Error('认证失败，请检查用户名和密码');
   if (res.status === 403) throw new Error('访问被拒绝');
   if (res.status === 404) throw new Error('服务器地址不存在');
   if (res.status !== 207 && !res.ok) throw new Error(`连接失败 (HTTP ${res.status})`);
 }
 
-export async function webdavMkcol(config: WebdavSyncConfig): Promise<void> {
+export async function webdavMkcol(
+  config: WebdavSyncConfig,
+  request: SyncRequestOptions = {},
+): Promise<void> {
   const url = buildUrl(config) + '/';
-  const res = await fetch(url, {
+  const res = await fetchWithSyncTimeout(url, {
     method: 'MKCOL',
     headers: headers(config),
-  });
+  }, request);
   if (res.status === 405 || res.status === 301 || res.ok) return;
   if (res.status === 409) throw new Error(`无法创建远程目录，请确认父目录存在: ${config.remotePath}`);
   throw new Error(`创建远程目录失败 (HTTP ${res.status})`);
 }
 
-export async function webdavGet(config: WebdavSyncConfig, file: string): Promise<string | null> {
+export async function webdavGet(
+  config: WebdavSyncConfig,
+  file: string,
+  request: SyncRequestOptions = {},
+): Promise<string | null> {
   const url = buildUrl(config, file);
-  const res = await fetch(url, {
+  const res = await fetchWithSyncTimeout(url, {
     method: 'GET',
     headers: headers(config),
-  });
+  }, request);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`下载 ${file} 失败 (HTTP ${res.status})`);
   return res.text();
 }
 
-export async function webdavPut(config: WebdavSyncConfig, file: string, content: string): Promise<void> {
+export async function webdavPut(
+  config: WebdavSyncConfig,
+  file: string,
+  content: string,
+  request: SyncRequestOptions = {},
+): Promise<void> {
   const url = buildUrl(config, file);
-  const res = await fetch(url, {
+  const res = await fetchWithSyncTimeout(url, {
     method: 'PUT',
     headers: headers(config, { 'Content-Type': 'application/json; charset=utf-8' }),
     body: content,
-  });
+  }, request);
   if (!res.ok) throw new Error(`上传 ${file} 失败 (HTTP ${res.status})`);
 }

@@ -208,12 +208,13 @@ export class IndexedDb {
 
   async transaction<T>(
     mode: 'r' | 'rw',
-    table: IndexedDbTable,
+    table: IndexedDbTable | readonly IndexedDbTable[],
     operation: (tx: IndexedDbTransaction) => Promise<T>,
   ): Promise<T> {
     await this.open();
     const idbMode = mode === 'rw' ? 'readwrite' : 'readonly';
-    const idbTx = this.backendDB().transaction([table.name], idbMode);
+    const tables = Array.isArray(table) ? table : [table];
+    const idbTx = this.backendDB().transaction(tables.map((item) => item.name), idbMode);
     const boundTx: IndexedDbTransaction = {
       table: (name) => this.bindTable(name, idbTx),
     };

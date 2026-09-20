@@ -147,7 +147,10 @@ describe('R4.1 persistence runtime handler ownership', () => {
       localPreference: createLocalPreferenceDependencies(),
     });
     const types = handlers.map((handler) => handler.type);
-    const expected = readInventoryCommands('R4.1 / #360 — Persistence, library, and local preferences (63)');
+    const expected = readInventoryCommands('R4.1 / #360 — Persistence, library, and local preferences (72)')
+      .filter((type) => !type.startsWith('PROJECT_KNOWLEDGE_')
+        && type !== 'PROJECT_RUNS_LIST'
+        && !type.endsWith('PROJECT_EXECUTION_POLICY'));
 
     expect(types).toHaveLength(63);
     expect(new Set(types).size).toBe(63);

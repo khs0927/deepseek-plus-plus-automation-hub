@@ -12,6 +12,16 @@ export interface ShellMcpPresetOptions {
   requestMs?: number;
 }
 
+/**
+ * Policy inspection never mutates the persisted allowlist. Accepting a
+ * readonly view keeps this API compatible with readonly tuples and immutable
+ * callers without changing the storage-facing MCP contract.
+ */
+export interface ShellAllowlistPolicyInput {
+  readonly mode: McpToolAllowlist['mode'];
+  readonly toolNames: readonly string[];
+}
+
 export const DEFAULT_SHELL_MCP_ALLOWLIST_TOOL_NAMES = [
   'shell_status',
   'python_status',
@@ -74,24 +84,24 @@ export function createShellMcpPresetInput(
 export function isShellMcpServer(
   server: Pick<McpServerConfig, 'displayName' | 'transport'>,
 ): boolean {
-  return server.displayName === SHELL_MCP_SERVER_NAME ||
-    server.transport.nativeHost === SHELL_MCP_NATIVE_HOST;
+  return server.transport.kind === 'native_messaging' && (
+    server.displayName === SHELL_MCP_SERVER_NAME ||
+    server.transport.nativeHost === SHELL_MCP_NATIVE_HOST
+  );
 }
 
-export function buildShellAllowlistUpgrade(allowlist: McpToolAllowlist): McpToolAllowlist | null {
-  if (allowlist.mode !== 'allow') return null;
-
-  const names = new Set(allowlist.toolNames);
-  const missingLocalSkillTools = LOCAL_SKILL_SHELL_TOOL_NAMES.filter((name) => !names.has(name));
-  const missingLocalFileTools = LOCAL_FILE_SHELL_TOOL_NAMES.filter((name) => !names.has(name));
-  const missingTaskTools = TASK_SHELL_TOOL_NAMES.filter((name) => !names.has(name));
-  const missing = [...missingLocalSkillTools, ...missingLocalFileTools, ...missingTaskTools];
-  if (missing.length === 0) return null;
-
-  return {
-    mode: 'allow',
-    toolNames: [...allowlist.toolNames, ...missing],
-  };
+/**
+ * Evaluates an existing allowlist without changing it.  Privileged Shell
+ * capabilities must be explicitly approved by the user; callers must not
+ * turn a missing entry into an implicit allowlist upgrade.
+ */
+export function isShellToolAllowedByAllowlist(
+  allowlist: ShellAllowlistPolicyInput,
+  toolName: string,
+): boolean {
+  if (allowlist.mode === 'all') return true;
+  const listed = allowlist.toolNames.includes(toolName);
+  return allowlist.mode === 'allow' ? listed : !listed;
 }
 
 export function buildShellLimitsUpgrade(

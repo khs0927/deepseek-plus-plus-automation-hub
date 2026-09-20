@@ -32,6 +32,7 @@ import {
   localAppData,
   splitPath,
 } from './os-adapter.mjs';
+import { attachProcessToJobObject, destroyChildStreams, terminateProcessTree } from './process-lifecycle.mjs';
 
 export function createProcessToolHandlers() {
   return [
@@ -66,7 +67,7 @@ function createShellStatusResult() {
   };
 }
 
-async function executeShellTool(args) {
+async function executeShellTool(args, { signal } = {}) {
   const command = args?.command;
   if (typeof command !== 'string' || command.trim().length === 0) {
     return { isError: true, content: [{ type: 'text', text: 'command is required and must be a non-empty string.' }] };
@@ -77,7 +78,7 @@ async function executeShellTool(args) {
     ? Math.min(args.timeout_ms, 600_000)
     : DEFAULT_TIMEOUT_MS;
   try {
-    const result = await execCommand(command, { cwd, env, timeoutMs });
+    const result = await execCommand(command, { cwd, env, timeoutMs, signal });
     return {
       content: [{ type: 'text', text: formatExecSummary(result) }],
       structuredContent: { ok: result.exitCode === 0, data: result },
@@ -87,29 +88,51 @@ async function executeShellTool(args) {
     return { isError: true, content: [{ type: 'text', text: error instanceof Error ? error.message : String(error) }] };
   }
 }
-function execCommand(command, { cwd, env, timeoutMs }) {
+function execCommand(command, { cwd, env, timeoutMs, signal }) {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason instanceof Error ? signal.reason : new Error('Shell command was cancelled.'));
+      return;
+    }
     const { shellBin, shellArgs } = createShellInvocation(command);
 
-    const child = spawn(shellBin, shellArgs, {
+    const spawnOptions = {
       cwd,
       env,
       shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-    });
+    };
+    if (platform() !== 'win32') spawnOptions.detached = true;
+    const child = spawn(shellBin, shellArgs, spawnOptions);
+    setTimeout(() => {
+      if (child.exitCode === null && !child.signalCode) void attachProcessToJobObject(child);
+    }, 25).unref?.();
 
     const stdout = [];
     const stderr = [];
     let stdoutBytes = 0;
     let stderrBytes = 0;
     let timedOut = false;
+    let cancelled = false;
+    let settled = false;
     let forceKillTimer = null;
+    let abortHandler = null;
+
+    const finish = (exitCode, processSignal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
+      if (signal && abortHandler) signal.removeEventListener('abort', abortHandler);
+      destroyChildStreams(child);
+      resolve({ command, shell: shellBin, exitCode: timedOut || cancelled ? -1 : (exitCode ?? -1), signal: processSignal || (timedOut || cancelled ? 'SIGTERM' : null), stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8'), truncated: stdoutBytes > MAX_OUTPUT_BYTES || stderrBytes > MAX_OUTPUT_BYTES, timedOut, cancelled });
+    };
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
-      forceKillTimer = setTimeout(() => child.kill('SIGKILL'), 3000);
+      void terminateProcessTree(child, { reason: 'shell_exec_timeout' });
+      finish(-1, 'SIGTERM');
     }, timeoutMs);
 
     const clearTimers = () => {
@@ -134,23 +157,23 @@ function execCommand(command, { cwd, env, timeoutMs }) {
     });
 
     child.on('error', (err) => {
+      if (settled) return;
       clearTimers();
+      settled = true;
       reject(new Error(`Failed to spawn command: $ ${command} (${err.message})`));
     });
 
     child.on('close', (exitCode, signal) => {
-      clearTimers();
-      resolve({
-        command,
-        shell: shellBin,
-        exitCode: timedOut ? -1 : (exitCode ?? -1),
-        signal: signal || (timedOut ? 'SIGTERM' : null),
-        stdout: Buffer.concat(stdout).toString('utf8'),
-        stderr: Buffer.concat(stderr).toString('utf8'),
-        truncated: stdoutBytes > MAX_OUTPUT_BYTES || stderrBytes > MAX_OUTPUT_BYTES,
-        timedOut,
-      });
+      finish(exitCode, signal);
     });
+
+    abortHandler = () => {
+      if (settled || timedOut || cancelled) return;
+      cancelled = true;
+      void terminateProcessTree(child, { reason: 'shell_exec_cancelled' });
+      forceKillTimer = setTimeout(() => finish(-1, 'SIGTERM'), 5_000);
+    };
+    signal?.addEventListener('abort', abortHandler, { once: true });
   });
 }
 
@@ -475,25 +498,40 @@ function execPythonProcess(command, commandArgs, { code, cwd, timeoutMs }) {
 function execProcess(command, args, { cwd, env, input, timeoutMs, maxOutputBytes }) {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    const child = spawn(command, args, {
+    const spawnOptions = {
       cwd,
       env,
       shell: false,
       stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
-    });
+    };
+    if (platform() !== 'win32') spawnOptions.detached = true;
+    const child = spawn(command, args, spawnOptions);
+    setTimeout(() => {
+      if (child.exitCode === null && !child.signalCode) void attachProcessToJobObject(child);
+    }, 25).unref?.();
 
     const stdout = [];
     const stderr = [];
     let stdoutBytes = 0;
     let stderrBytes = 0;
     let timedOut = false;
+    let settled = false;
     let forceKillTimer = null;
+
+    const finish = (exitCode, signal) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
+      destroyChildStreams(child);
+      resolve({ command: [command, ...args].join(' '), exitCode: timedOut ? -1 : (exitCode ?? -1), signal: signal || (timedOut ? 'SIGTERM' : null), stdout: Buffer.concat(stdout).toString('utf8'), stderr: Buffer.concat(stderr).toString('utf8'), truncated: stdoutBytes > maxOutputBytes || stderrBytes > maxOutputBytes, timedOut, durationMs: Date.now() - startedAt });
+    };
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGTERM');
-      forceKillTimer = setTimeout(() => child.kill('SIGKILL'), 3000);
+      void terminateProcessTree(child, { reason: 'python_timeout' });
+      finish(-1, 'SIGTERM');
     }, timeoutMs);
 
     const clearTimers = () => {
@@ -518,22 +556,14 @@ function execProcess(command, args, { cwd, env, input, timeoutMs, maxOutputBytes
     });
 
     child.on('error', (err) => {
+      if (settled) return;
       clearTimers();
+      settled = true;
       reject(new Error(`Failed to spawn ${command}: ${err.message}`));
     });
 
     child.on('close', (exitCode, signal) => {
-      clearTimers();
-      resolve({
-        command: [command, ...args].join(' '),
-        exitCode: timedOut ? -1 : (exitCode ?? -1),
-        signal: signal || (timedOut ? 'SIGTERM' : null),
-        stdout: Buffer.concat(stdout).toString('utf8'),
-        stderr: Buffer.concat(stderr).toString('utf8'),
-        truncated: stdoutBytes > maxOutputBytes || stderrBytes > maxOutputBytes,
-        timedOut,
-        durationMs: Date.now() - startedAt,
-      });
+      finish(exitCode, signal);
     });
 
     if (input != null) {

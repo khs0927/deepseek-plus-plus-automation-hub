@@ -1,460 +1,222 @@
 const http = require('http');
+const crypto = require('crypto');
 const { SubagentOrchestrator } = require('./orchestrator');
 const { SessionKeeper } = require('./session-keeper');
 const { WatchdogDaemon } = require('./watchdog-daemon');
 
-const orchestrator = new SubagentOrchestrator();
-const sessionKeeper = new SessionKeeper({ cdpUrl: orchestrator.config.cdpUrl || 'http://127.0.0.1:9223' });
-const watchdog = new WatchdogDaemon({
-  cdpUrl: orchestrator.config.cdpUrl || 'http://127.0.0.1:9223',
-  intervalMs: 15000,
-  autoWake: false
-});
-
-// Auto-wake watchdog background injection is PERMANENTLY DISABLED to protect user typing/workflows.
-// Waking and log checks are strictly on-demand.
-
-const PORT = orchestrator.config.port || 8932;
+const MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024;
+const DEFAULT_EXTENSION_ORIGIN = 'chrome-extension://kdmpkkahkhdmdhfkdihkopikgcocbpbf';
 
 const TOOLS = [
-  // 1. Subagent Orchestration Tools
-  {
-    name: 'invoke_subagent',
-    description: '독립적인 서브에이전트(Subagent)를 스폰하여 복잡하거나 병렬 처리가 필요한 작업을 위임합니다. 서브에이전트는 자체 추론 루프를 통해 분석, 코드 작성, 리서치 등을 자율적으로 수행하고 결과 보고서를 반환합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        role: {
-          type: 'string',
-          description: "서브에이전트의 구체적 역할 (예: '코드 보안 감사관', '문서 리서처', '데이터 분석가', '테스트 엔지니어')"
-        },
-        task: {
-          type: 'string',
-          description: '서브에이전트에게 위임할 상세 작업 지시사항, 제약조건, 기대하는 출력 형식'
-        },
-        engine: {
-          type: 'string',
-          enum: ['auto', 'deepseek_web', 'gemini', 'groq'],
-          description: "추론 엔진 선택. 기본값 'auto'는 무료 API 키 유무에 따라 자동 선택되며, 키가 없어도 브라우저 DeepSeek 세션(100% 무료)으로 구동됩니다."
-        },
-        background: {
-          type: 'boolean',
-          description: '백그라운드 비동기 실행 여부. false(기본값)는 완료 시까지 대기 후 결과 즉시 반환, true는 task_id를 즉시 반환.'
-        }
-      },
-      required: ['role', 'task']
-    }
-  },
-  {
-    name: 'check_subagent_status',
-    description: '스폰된 서브에이전트의 현재 진행 상태(RUNNING, COMPLETED, FAILED) 및 작업 결과물을 확인합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        task_id: {
-          type: 'string',
-          description: 'invoke_subagent 호출 시 반환받은 task_id'
-        }
-      },
-      required: ['task_id']
-    }
-  },
-  {
-    name: 'list_subagents',
-    description: '현재 세션에서 스폰된 모든 서브에이전트의 상태와 작업 요약 목록을 조회합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {}
-    }
-  },
-  {
-    name: 'kill_subagent',
-    description: '실행 중인 서브에이전트를 강제 중단(Cancel)합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        task_id: {
-          type: 'string',
-          description: '취소할 서브에이전트의 task_id'
-        }
-      },
-      required: ['task_id']
-    }
-  },
-  {
-    name: 'set_subagent_config',
-    description: '서브에이전트 구동 설정(무료 Gemini API Key, Groq API Key, 기본 엔진 등)을 저장합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        geminiApiKey: { type: 'string', description: 'Google AI Studio 무료 API Key' },
-        groqApiKey: { type: 'string', description: 'Groq Cloud 무료 API Key' },
-        defaultEngine: { type: 'string', enum: ['auto', 'deepseek_web', 'gemini', 'groq'] }
-      }
-    }
-  },
-
-  // 2. Session Watchdog & Auto-Wakeup Tools
-  {
-    name: 'list_deepseek_sessions',
-    description: '현재 브라우저에 열려 있는 모든 DeepSeek 대화 세션의 실시간 상태(정상 진행, 멈춤, 계속 버튼 대기, 도구 실패 등)를 스캔하여 요약합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {}
-    }
-  },
-  {
-    name: 'get_session_logs',
-    description: '특정 대화 세션(또는 현재 활성 탭)의 상세 실행 로그 및 단계별 도구 실패/성공 이력을 조회합니다. 작업이 멈췄거나 오류가 발생한 원인을 정밀 진단할 때 사용합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        session_id: {
-          type: 'string',
-          description: "조회할 DeepSeek 세션 ID (예: 'f0971d0b-3698-4c6b-9ac6-fe8a5e6145f4'). 생략하거나 'current' 입력 시 현재 열린 세션 조회."
-        }
-      }
-    }
-  },
-  {
-    name: 'wake_up_session',
-    description: '멈춰있거나 일시 중단된 대화 세션을 즉시 깨웁니다. 화면의 재시도/계속 버튼을 자동 클릭하거나, 문맥에 맞춘 계속 진행 명령어를 주입하여 작업을 재개합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        session_id: {
-          type: 'string',
-          description: "깨울 대화 세션 ID (생략 시 현재 열려 있는 DeepSeek 탭 자동 대상)."
-        },
-        custom_message: {
-          type: 'string',
-          description: "주입할 사용자 지정 지시문 (예: '계속', '도구 오류를 무시하고 다음 단계 코드를 작성해주세요'). 미지정 시 최적화된 복구 프롬프트 자동 사용."
-        },
-        force_prompt: {
-          type: 'boolean',
-          description: "버튼 클릭 대신 무조건 입력창에 프롬프트를 주입하여 전송할지 여부 (기본값 false)."
-        }
-      }
-    }
-  },
-  {
-    name: 'configure_watchdog',
-    description: '백그라운드 자동 감시(Watchdog) 데몬의 동작 설정(자동 깨우기 on/off, 감시 주기) 및 현재 가동 통계를 조회하거나 변경합니다.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        auto_wake: {
-          type: 'boolean',
-          description: '멈춤 감지 시 자동으로 깨우기(계속 입력/버튼 클릭)를 수행할지 여부 (기본 true).'
-        },
-        interval_seconds: {
-          type: 'number',
-          description: '세션 상태 검사 주기(초 단위, 최소 3초, 기본 10초).'
-        }
-      }
-    }
-  }
+  { name: 'invoke_subagent', description: 'Run a bounded subagent task.', inputSchema: { type: 'object', required: ['role', 'task'], properties: { role: { type: 'string' }, task: { type: 'string' }, engine: { type: 'string', enum: ['auto', 'deepseek_web', 'gemini', 'groq'] }, background: { type: 'boolean' } } } },
+  { name: 'check_subagent_status', description: 'Read one subagent task.', inputSchema: { type: 'object', required: ['task_id'], properties: { task_id: { type: 'string' } } } },
+  { name: 'list_subagents', description: 'List subagent tasks.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'kill_subagent', description: 'Cancel one running or queued subagent.', inputSchema: { type: 'object', required: ['task_id'], properties: { task_id: { type: 'string' } } } },
+  { name: 'set_subagent_config', description: 'Update non-secret subagent settings.', inputSchema: { type: 'object', properties: { geminiApiKey: { type: 'string' }, groqApiKey: { type: 'string' }, defaultEngine: { type: 'string' }, cdpUrl: { type: 'string' }, port: { type: 'number' } } } },
+  { name: 'list_deepseek_sessions', description: 'Inspect open DeepSeek tabs.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'get_session_logs', description: 'Read current session and trace logs.', inputSchema: { type: 'object', properties: { session_id: { type: 'string' } } } },
+  { name: 'wake_up_session', description: 'Explicitly resume one DeepSeek session.', inputSchema: { type: 'object', properties: { session_id: { type: 'string' }, custom_message: { type: 'string' }, force_prompt: { type: 'boolean' } } } },
+  { name: 'configure_watchdog', description: 'Configure or inspect the watchdog.', inputSchema: { type: 'object', properties: { auto_wake: { type: 'boolean' }, interval_seconds: { type: 'number' }, start: { type: 'boolean' }, stop: { type: 'boolean' } } } },
 ];
 
-let sseClients = new Set();
-
-function broadcastSse(messageObj) {
-  const payload = JSON.stringify(messageObj);
-  console.log('[SSE OUT]:', payload.slice(0, 150));
-  for (const client of sseClients) {
-    client.write(`event: message\ndata: ${payload}\n\n`);
-  }
-}
-
-async function handleJsonRpc(reqBody) {
-  const { id, method, params } = reqBody;
-
-  if (method === 'initialize') {
-    return {
-      jsonrpc: '2.0',
-      id,
-      result: {
-        protocolVersion: params?.protocolVersion || '2024-11-05',
-        capabilities: {
-          tools: {
-            listChanged: false
-          }
-        },
-        serverInfo: {
-          name: 'Subagent Manager & Session Watchdog (DeepSeek++)',
-          version: '1.2.0'
-        },
-        instructions: 'Subagent Manager & Session Watchdog provides autonomous subagent orchestration, live session stall detection, execution trace logs, and automated wake-up recovery for DeepSeek++.'
-      }
-    };
-  }
-
-  if (method === 'notifications/initialized') {
-    return null; // Notification, no response required
-  }
-
-  if (method === 'ping') {
-    return { jsonrpc: '2.0', id, result: {} };
-  }
-
-  if (method === 'tools/list') {
-    return {
-      jsonrpc: '2.0',
-      id,
-      result: {
-        tools: TOOLS
-      }
-    };
-  }
-
-  if (method === 'tools/call') {
-    const toolName = params?.name;
-    const args = params?.arguments || {};
-
-    try {
-      let toolResult;
-
-      // Subagent tools
-      if (toolName === 'invoke_subagent') {
-        const res = await orchestrator.invokeSubagent(args);
-        if (args.background) {
-          toolResult = `[서브에이전트 비동기 스폰 완료]\n- Task ID: ${res.taskId}\n- 역할: ${res.role}\n- 엔진: ${res.engine}\n- 상태: ${res.status}\n\n진행 상황은 check_subagent_status(task_id="${res.taskId}")로 확인할 수 있습니다.`;
-        } else {
-          toolResult = [
-            `### 🤖 서브에이전트 [${res.role}] 실행 완료 보고`,
-            `- **Task ID**: \`${res.id}\``,
-            `- **엔진**: ${res.resolvedEngine || res.engine}`,
-            `- **완료 시각**: ${res.endTime}`,
-            ``,
-            `#### 📋 수행 결과:`,
-            res.result
-          ].join('\n');
-        }
-      } else if (toolName === 'check_subagent_status') {
-        const record = orchestrator.checkStatus(args.task_id);
-        if (record.error) {
-          toolResult = `❌ 오류: ${record.error}`;
-        } else {
-          toolResult = [
-            `### 서브에이전트 상태: [${record.role}]`,
-            `- **ID**: ${record.id}`,
-            `- **상태**: ${record.status}`,
-            `- **엔진**: ${record.engine}`,
-            `- **시작**: ${record.startTime}`,
-            `- **종료**: ${record.endTime || '진행 중...'}`,
-            record.result ? `\n#### 결과:\n${record.result}` : (record.error ? `\n#### 에러:\n${record.error}` : '')
-          ].join('\n');
-        }
-      } else if (toolName === 'list_subagents') {
-        const list = orchestrator.listSubagents();
-        if (list.length === 0) {
-          toolResult = '현재 실행되었거나 대기 중인 서브에이전트가 없습니다.';
-        } else {
-          toolResult = '### 📋 서브에이전트 목록:\n' + list.map(t => 
-            `- **[${t.status}]** \`${t.id}\` | 역할: ${t.role} (${t.engine}) | 요약: ${t.summary || '없음'}`
-          ).join('\n');
-        }
-      } else if (toolName === 'kill_subagent') {
-        const res = orchestrator.killSubagent(args.task_id);
-        toolResult = res.message;
-      } else if (toolName === 'set_subagent_config') {
-        const updated = orchestrator.saveConfig(args);
-        toolResult = `설정이 저장되었습니다: ${JSON.stringify(updated, null, 2)}`;
-      }
-
-      // Session Watchdog & Logger tools
-      else if (toolName === 'list_deepseek_sessions') {
-        const sessions = await sessionKeeper.scanSessions();
-        if (sessions.length === 0) {
-          toolResult = '열려 있는 DeepSeek 대화 세션이 없습니다. Edge 브라우저에서 https://chat.deepseek.com 이 열려 있는지 확인하세요.';
-        } else {
-          const lines = ['### 🌐 활성 DeepSeek 대화 세션 목록:'];
-          for (const s of sessions) {
-            const statusIcon = s.status === 'GENERATING' ? '🟡 생성 중' :
-                               s.status === 'NEEDS_RESUME_BUTTON' ? '🟠 계속 대기' :
-                               s.status === 'STALLED' || s.status === 'TOOL_FAILURE_STALLED' ? '🔴 멈춤/오류' :
-                               s.status === 'AGENT_ERROR' ? '❌ 에러' : '🟢 대기 중';
-            lines.push(`\n#### [${statusIcon}] **${s.title}**`);
-            lines.push(`- **Session ID**: \`${s.sessionId}\``);
-            lines.push(`- **상태 코드**: \`${s.status}\``);
-            if (s.dppPhase) lines.push(`- **에이전트 단계**: ${s.dppPhase} (${s.dppStatusText || ''})`);
-            if (s.failedToolCount > 0) lines.push(`- **실패 도구**: ${s.failedToolCount}건 (${(s.failedToolsSnippet || []).join(', ')})`);
-            if (s.hasResumeBtn) lines.push(`- **감지된 버튼**: '${s.resumeBtnText}'`);
-            if (s.wakeInfo && s.wakeInfo.wakeCount > 0) lines.push(`- **깨우기 이력**: ${s.wakeInfo.wakeCount}회 수행됨`);
-            if (s.lastTextSnippet) lines.push(`- **최근 텍스트 요약**: ${s.lastTextSnippet.slice(-120).replace(/\n/g, ' ')}`);
-            if (s.error) lines.push(`- **오류**: ${s.error}`);
-          }
-          toolResult = lines.join('\n');
-        }
-      } else if (toolName === 'get_session_logs') {
-        const detailed = await sessionKeeper.getDetailedSessionLogs(args.session_id);
-        const lines = [`### 📜 DeepSeek 세션 상세 실행 및 오류 로그`];
-        lines.push(`- **조회 시각**: ${new Date(detailed.timestamp).toLocaleString('ko-KR')}`);
-
-        if (detailed.liveSessions.length > 0) {
-          lines.push(`\n#### 🖥️ 실시간 탭 상태:`);
-          for (const s of detailed.liveSessions) {
-            lines.push(`- **제목**: ${s.title} (\`${s.sessionId}\`)`);
-            lines.push(`- **상태**: \`${s.status}\` | 생성 중: ${s.isGenerating} | 에이전트 단계: ${s.dppPhase || 'N/A'}`);
-            if (s.lastTextSnippet) {
-              lines.push(`- **마지막 출력 스니펫**:\n  > ${s.lastTextSnippet.slice(-200).replace(/\n/g, '\n  > ')}`);
-            }
-          }
-        }
-
-        if (detailed.recentTraces.length > 0) {
-          lines.push(`\n#### 🔍 DeepSeek++ 확장 프로그램 실행 트레이스 (최근 ${detailed.recentTraces.length}건):`);
-          for (const t of detailed.recentTraces.slice(0, 3)) {
-            lines.push(`\n##### 🔹 Trace [${t.status.toUpperCase()}] (\`${t.chatSessionId}\` / ${t.createdAt})`);
-            lines.push(`- **총 단계 / 도구**: ${t.totalSteps}단계, ${t.totalTools}회 도구 호출 (${t.durationSeconds}초 소요)`);
-            if (t.error) lines.push(`- **❗ 에러 원인**: \`${t.error}\``);
-
-            for (const s of t.steps) {
-              lines.push(`  - **Step ${s.stepIndex + 1}** [${s.status}]:`);
-              if (s.textSnippet) lines.push(`    - 설명: ${s.textSnippet.slice(0, 100).replace(/\n/g, ' ')}...`);
-              for (const tool of s.toolExecutions) {
-                const icon = tool.ok ? '✅' : '❌';
-                lines.push(`    - ${icon} 도구 \`${tool.name}\`: ${tool.summary || '결과 없음'}${tool.error ? ` (${tool.error})` : ''}`);
-              }
-            }
-          }
-        } else {
-          lines.push('\n- 기록된 에이전트 트레이스 로그가 없습니다.');
-        }
-
-        toolResult = lines.join('\n');
-      } else if (toolName === 'wake_up_session') {
-        const res = await sessionKeeper.wakeUpSession({
-          sessionId: args.session_id,
-          customMessage: args.custom_message,
-          forcePrompt: args.force_prompt
-        });
-        toolResult = res.message;
-      } else if (toolName === 'configure_watchdog') {
-        let status;
-        if (args.auto_wake !== undefined || args.interval_seconds !== undefined) {
-          status = watchdog.configure({
-            autoWake: args.auto_wake,
-            intervalMs: args.interval_seconds ? args.interval_seconds * 1000 : undefined
-          });
-        } else {
-          status = watchdog.getStatus();
-        }
-        toolResult = [
-          `### 🐕 Watchdog 상시 감시 상태`,
-          `- **동작 여부**: ${status.isRunning ? '🟢 실행 중 (RUNNING)' : '🔴 중지됨 (STOPPED)'}`,
-          `- **자동 깨우기(Auto-Wake)**: ${status.autoWake ? '활성화 (ON)' : '비활성화 (OFF)'}`,
-          `- **감시 주기**: ${status.intervalMs / 1000}초`,
-          `- **최근 확인 시각**: ${status.lastCheckTime ? new Date(status.lastCheckTime).toLocaleString('ko-KR') : '없음'}`,
-          `- **누적 통계**: 총 검사 ${status.stats.checksTotal}회 | 멈춤 감지 ${status.stats.stallsDetected}회 | 깨우기 시도 ${status.stats.wakesAttempted}회 | 성공 ${status.stats.wakesSucceeded}회`
-        ].join('\n');
-      } else {
-        throw new Error(`Unknown tool: ${toolName}`);
-      }
-
-      return {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          content: [
-            {
-              type: 'text',
-              text: toolResult
-            }
-          ]
-        }
-      };
-    } catch (err) {
-      return {
-        jsonrpc: '2.0',
-        id,
-        result: {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `도구 실행 중 에러 발생: ${err.message}`
-            }
-          ]
-        }
-      };
-    }
-  }
-
+function createSseClientRegistry() {
+  const clients = new Map();
   return {
-    jsonrpc: '2.0',
-    id,
-    error: {
-      code: -32601,
-      message: `Method '${method}' not found`
-    }
+    add(clientId, response) { clients.set(clientId, response); },
+    delete(clientId) { clients.delete(clientId); },
+    has(clientId) { return clients.has(clientId); },
+    send(clientId, message) {
+      const response = clients.get(clientId);
+      if (!response) return false;
+      try {
+        response.write(`event: message\ndata: ${JSON.stringify(message)}\n\n`);
+        return true;
+      } catch {
+        clients.delete(clientId);
+        return false;
+      }
+    },
+    size() { return clients.size; },
   };
 }
 
-const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+function isLoopbackAddress(address) {
+  return address === '127.0.0.1' || address === '::1' || address === '::ffff:127.0.0.1';
+}
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
+function isAllowedOrigin(origin, configuredOrigins = []) {
+  if (!origin) return true;
+  if (configuredOrigins.includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && (url.hostname === '127.0.0.1' || url.hostname === 'localhost' || url.hostname === '::1');
+  } catch {
+    return false;
   }
+}
 
-  const host = req.headers.host || `127.0.0.1:${PORT}`;
-  const proto = host.includes('trycloudflare.com') ? 'https' : 'http';
-  const url = new URL(req.url, `${proto}://${host}`);
-
-  if (req.method === 'GET' && (url.pathname === '/sse' || url.pathname === '/')) {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive'
-    });
-
-    const postEndpoint = `${proto}://${host}/message`;
-    console.log('[SSE] Client connected, advertising endpoint:', postEndpoint);
-    res.write(`event: endpoint\ndata: ${postEndpoint}\n\n`);
-
-    sseClients.add(res);
-    req.on('close', () => {
-      sseClients.delete(res);
-      console.log('[SSE] Client disconnected');
-    });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/message') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', async () => {
-      console.log('[POST message]:', body.slice(0, 150));
-      try {
-        const jsonRpcReq = JSON.parse(body);
-        const jsonRpcRes = await handleJsonRpc(jsonRpcReq);
-
-        if (jsonRpcRes) {
-          // Broadcast to SSE streams
-          broadcastSse(jsonRpcRes);
-        }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(jsonRpcRes || { ok: true }));
-      } catch (err) {
-        console.error('Error handling JSON-RPC:', err);
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+function readRequestBody(req, maxBytes = MAX_REQUEST_BODY_BYTES) {
+  return new Promise((resolve, reject) => {
+    let total = 0;
+    const chunks = [];
+    req.on('data', chunk => {
+      total += chunk.length;
+      if (total > maxBytes) {
+        req.destroy();
+        reject(Object.assign(new Error(`Request body exceeds ${maxBytes} bytes.`), { code: 'request_body_too_large' }));
+        return;
       }
+      chunks.push(chunk);
     });
-    return;
+    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    req.on('error', reject);
+  });
+}
+
+async function handleJsonRpc(request, { orchestrator, sessionKeeper, watchdog }) {
+  const { id, method, params = {} } = request || {};
+  if (method === 'initialize') {
+    return { jsonrpc: '2.0', id, result: { protocolVersion: params.protocolVersion || '2024-11-05', capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'DeepSeek++ Subagent Manager', version: '1.3.0' } } };
   }
+  if (method === 'notifications/initialized') return null;
+  if (method === 'ping') return { jsonrpc: '2.0', id, result: {} };
+  if (method === 'tools/list') return { jsonrpc: '2.0', id, result: { tools: TOOLS } };
+  if (method !== 'tools/call') return { jsonrpc: '2.0', id, error: { code: -32601, message: `Method '${method}' not found` } };
 
-  res.writeHead(404);
-  res.end('Not Found');
-});
+  try {
+    let text;
+    switch (params.name) {
+      case 'invoke_subagent': {
+        const result = await orchestrator.invokeSubagent(params.arguments || {});
+        text = result.result
+          ? `### Subagent completed\n- Task ID: ${result.id}\n- Status: ${result.status}\n\n${result.result}`
+          : `Subagent ${result.taskId} accepted with status ${result.status}.`;
+        break;
+      }
+      case 'check_subagent_status': {
+        const result = orchestrator.checkStatus(params.arguments?.task_id);
+        text = result.error || JSON.stringify(result);
+        break;
+      }
+      case 'list_subagents': text = JSON.stringify(orchestrator.listSubagents()); break;
+      case 'kill_subagent': {
+        const result = orchestrator.killSubagent(params.arguments?.task_id);
+        text = result.message || JSON.stringify(result);
+        break;
+      }
+      case 'set_subagent_config': text = JSON.stringify(orchestrator.saveConfig(params.arguments || {})); break;
+      case 'list_deepseek_sessions': text = JSON.stringify(await sessionKeeper.scanSessions()); break;
+      case 'get_session_logs': text = JSON.stringify(await sessionKeeper.getDetailedSessionLogs(params.arguments?.session_id)); break;
+      case 'wake_up_session': text = JSON.stringify(await sessionKeeper.wakeUpSession({ sessionId: params.arguments?.session_id, customMessage: params.arguments?.custom_message, forcePrompt: params.arguments?.force_prompt })); break;
+      case 'configure_watchdog': {
+        const args = params.arguments || {};
+        if (args.start) watchdog.start();
+        if (args.stop) watchdog.stop();
+        text = JSON.stringify(watchdog.configure({ autoWake: args.auto_wake, intervalMs: args.interval_seconds ? args.interval_seconds * 1000 : undefined }));
+        break;
+      }
+      default: throw new Error(`Unknown tool: ${params.name}`);
+    }
+    return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }] } };
+  } catch (error) {
+    return { jsonrpc: '2.0', id, result: { isError: true, content: [{ type: 'text', text: `Tool execution failed: ${error.message}` }] } };
+  }
+}
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Subagent Manager & Session Watchdog listening on http://127.0.0.1:${PORT}`);
-  console.log(`SSE Endpoint: http://127.0.0.1:${PORT}/sse`);
-});
+function createSubagentServer(options = {}) {
+  const orchestrator = options.orchestrator || new SubagentOrchestrator();
+  const sessionKeeper = options.sessionKeeper || new SessionKeeper({ cdpUrl: orchestrator.config.cdpUrl || 'http://127.0.0.1:9223' });
+  const watchdog = options.watchdog || new WatchdogDaemon({ cdpUrl: orchestrator.config.cdpUrl || 'http://127.0.0.1:9223' });
+  const registry = options.registry || createSseClientRegistry();
+  const configuredOrigins = [
+    DEFAULT_EXTENSION_ORIGIN,
+    ...(Array.isArray(orchestrator.config.allowedOrigins) ? orchestrator.config.allowedOrigins : []),
+    ...(process.env.SUBAGENT_ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean),
+  ];
+  const port = options.port ?? orchestrator.config.port ?? 8932;
+
+  const server = http.createServer(async (req, res) => {
+    const origin = req.headers.origin;
+    if (!isLoopbackAddress(req.socket.remoteAddress) || !isAllowedOrigin(origin, configuredOrigins)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Loopback access and an allowed origin are required.' }));
+      return;
+    }
+    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Subagent-Client-Id');
+    res.setHeader('Vary', 'Origin');
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const url = new URL(req.url || '/', `http://127.0.0.1:${port}`);
+    if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/sse')) {
+      const clientId = crypto.randomUUID();
+      const endpoint = `http://127.0.0.1:${port}/message?client_id=${encodeURIComponent(clientId)}`;
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+      res.write(`event: endpoint\ndata: ${endpoint}\n\n`);
+      registry.add(clientId, res);
+      req.on('close', () => registry.delete(clientId));
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/message') {
+      try {
+        const raw = await readRequestBody(req);
+        const request = JSON.parse(raw);
+        const clientId = url.searchParams.get('client_id') || req.headers['x-subagent-client-id'];
+        const response = await handleJsonRpc(request, { orchestrator, sessionKeeper, watchdog });
+        if (!response) {
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true }));
+          return;
+        }
+        if (!clientId || !registry.has(clientId)) {
+          res.writeHead(409, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'A live SSE client_id is required for JSON-RPC responses.' }));
+          return;
+        }
+        registry.send(clientId, response);
+        res.writeHead(202, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      } catch (error) {
+        const status = error.code === 'request_body_too_large' ? 413 : 400;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+  });
+
+  return { server, orchestrator, sessionKeeper, watchdog, registry, port };
+}
+
+function startServer(options = {}) {
+  const service = createSubagentServer(options);
+  const host = options.host || process.env.SUBAGENT_HOST || '127.0.0.1';
+  service.server.listen(service.port, host, () => {
+    console.log(`Subagent MCP listening on http://${host}:${service.port}`);
+  });
+  if (process.env.SUBAGENT_WATCHDOG_AUTOSTART === '1') service.watchdog.start();
+  return service;
+}
+
+if (require.main === module) startServer();
+
+module.exports = {
+  MAX_REQUEST_BODY_BYTES,
+  TOOLS,
+  createSseClientRegistry,
+  isAllowedOrigin,
+  isLoopbackAddress,
+  readRequestBody,
+  handleJsonRpc,
+  createSubagentServer,
+  startServer,
+};

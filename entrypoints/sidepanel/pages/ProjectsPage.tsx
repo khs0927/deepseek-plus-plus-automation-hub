@@ -17,6 +17,8 @@ import { createRequestGenerationFence } from '../async-state';
 import MemoryCard from '../components/MemoryCard';
 import MemoryForm from '../components/MemoryForm';
 import PageIntro from '../components/PageIntro';
+import ProjectKnowledgePanel from '../components/ProjectKnowledgePanel';
+import ProjectExecutionPolicyPanel from '../components/ProjectExecutionPolicyPanel';
 import { SkeletonList, StatusBadge, useBanner, useConfirm } from '../components/settings/primitives';
 import { useI18n } from '../i18n';
 import { decodeMemoryList } from '../controllers/library-controller';
@@ -586,6 +588,12 @@ export default function ProjectsPage() {
                   </div>
                 )}
               </section>
+
+              <ProjectKnowledgePanel
+                projectId={selectedProject.id}
+                conversations={projectConversations}
+              />
+              <ProjectExecutionPolicyPanel projectId={selectedProject.id} />
             </section>
           )}
         </div>

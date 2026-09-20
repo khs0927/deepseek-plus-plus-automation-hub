@@ -1,6 +1,6 @@
 import { getMcpToolDescriptors, refreshMcpServerDiscovery } from '../mcp/discovery';
-import { getAllMcpServers, getMcpToolCache, updateMcpServer } from '../mcp/store';
-import { buildShellAllowlistUpgrade, isShellMcpServer } from '../shell';
+import { getAllMcpServers, getMcpToolCache } from '../mcp/store';
+import { isShellMcpServer, isShellToolAllowedByAllowlist, LOCAL_SKILL_SHELL_TOOL_NAMES } from '../shell';
 import type {
   LocalSkillImportRequest,
   LocalSkillImportBlock,
@@ -616,18 +616,20 @@ async function getShellMcpServer(): Promise<McpServerConfig> {
   if (!server.execution.enabled || server.execution.mode === 'disabled') {
     throw new Error('Shell MCP execution is disabled. Enable execution on the MCP page before importing local Skills.');
   }
-  server = await ensureLocalSkillShellToolsAllowed(server);
+  assertLocalSkillShellToolsAllowed(server);
   return server;
 }
 
-async function ensureLocalSkillShellToolsAllowed(server: McpServerConfig): Promise<McpServerConfig> {
-  const upgradedAllowlist = buildShellAllowlistUpgrade(server.allowlist);
-  if (!upgradedAllowlist) return server;
+function assertLocalSkillShellToolsAllowed(server: McpServerConfig): void {
+  const missing = LOCAL_SKILL_SHELL_TOOL_NAMES.filter((toolName) =>
+    !isShellToolAllowedByAllowlist(server.allowlist, toolName)
+  );
+  if (missing.length === 0) return;
 
-  const updated = await updateMcpServer(server.id, {
-    allowlist: upgradedAllowlist,
-  });
-  return updated ?? server;
+  throw new Error(
+    `Shell MCP does not approve the required local Skill tools: ${missing.join(', ')}. ` +
+    'Approve these tools in the Shell Local policy before importing a local Skill.',
+  );
 }
 
 function parseLocalSkillHostBundle(output: JsonValue | undefined): LocalSkillHostBundle {

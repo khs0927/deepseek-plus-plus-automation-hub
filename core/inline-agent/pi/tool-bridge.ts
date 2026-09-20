@@ -39,7 +39,7 @@ import {
 export interface PiToolBridgeInput {
   descriptors: readonly ToolDescriptor[];
   /** The existing grant-checking execution path. Never bypassed. */
-  executeTool: (call: ToolCall) => Promise<ToolExecutionRecord>;
+  executeTool: (call: ToolCall, options?: { signal?: AbortSignal }) => Promise<ToolExecutionRecord>;
   /**
    * The extension-owned authorization binding for this run. Tool-call
    * sources must match the grant exactly (`requestId`, `chatSessionId`),
@@ -135,7 +135,7 @@ function createPiAgentTool(
           requestId: callSource.requestId,
           chatSessionId: callSource.chatSessionId,
         },
-      });
+      }, { signal: _signal });
       return {
         content: [{ type: 'text', text: record.result.summary ?? '' }],
         details: record.result,

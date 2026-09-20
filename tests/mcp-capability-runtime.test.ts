@@ -161,6 +161,52 @@ describe('MCP capability invoke runtime', () => {
     });
     expect(targetExecute).toHaveBeenCalledTimes(1);
   });
+
+  it('re-checks project policy after a capability handle resolves to an MCP target', async () => {
+    const target = createTargetDescriptor();
+    const controls = createMcpCapabilityToolDescriptors('en');
+    const targetExecute = vi.fn(async (): Promise<ToolResult> => ({
+      ok: true,
+      summary: 'should not run',
+    }));
+    const registry = new ToolProviderRegistry([
+      createCapabilityProvider(controls),
+      {
+        registration: { kind: 'mcp' },
+        listTools: vi.fn(async () => [target]),
+        execute: targetExecute,
+      },
+    ]);
+    const policy = vi.fn(async ({ descriptor }: { descriptor: ToolDescriptor }): Promise<ToolResult | null> => (
+      descriptor.provider.kind === 'mcp'
+        ? { ok: false, summary: 'blocked by project policy', error: { code: 'project_policy_denied', message: 'MCP target is not approved.', retryable: false } }
+        : null
+    ));
+    const runtime = createRuntimeToolRuntime(registry, {
+      capabilityInvocationResolver: createMcpCapabilityInvocationResolver(),
+      projectExecutionPolicy: policy,
+    });
+    const discover = findControl(controls, 'mcp_discover');
+    const invoke = findControl(controls, 'mcp_invoke');
+
+    const discovered = await runtime.executeToolCall(
+      createCall(discover, { query: 'write a document' }, 'call-discover-policy'),
+      'sidepanel_chat',
+      'en',
+      { trustedCapabilityScopeId: 'chat-turn-policy' },
+    );
+    const capability = (discovered.output as { candidates: Array<{ capability: string }> }).candidates[0]!.capability;
+    const invoked = await runtime.executeToolCall(
+      createCall(invoke, { capability, arguments: { path: '/workspace/plan.md' } }, 'call-invoke-policy'),
+      'sidepanel_chat',
+      'en',
+      { trustedCapabilityScopeId: 'chat-turn-policy' },
+    );
+
+    expect(invoked).toMatchObject({ ok: false, error: { code: 'project_policy_denied' } });
+    expect(policy).toHaveBeenCalledTimes(3);
+    expect(targetExecute).not.toHaveBeenCalled();
+  });
 });
 
 function createCapabilityProvider(controls: readonly ToolDescriptor[]): RuntimeToolProvider {

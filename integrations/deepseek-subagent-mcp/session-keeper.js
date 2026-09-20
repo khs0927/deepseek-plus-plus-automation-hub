@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { fetchWithDeadline, readResponseJson } = require('./request-helper');
 
 const LOGS_DIR = path.join(__dirname, 'logs');
 if (!fs.existsSync(LOGS_DIR)) {
@@ -28,17 +29,41 @@ class SessionKeeper {
   }
 
   // Helper to run CDP commands on a WebSocket
-  async runCDP(wsUrl, expression, awaitPromise = true) {
+  async runCDP(wsUrl, expression, awaitPromise = true, signal) {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(wsUrl);
-      const timer = setTimeout(() => {
+      let settled = false;
+      const requestId = 1;
+      const cleanup = () => {
+        clearTimeout(timer);
+        ws.removeEventListener?.('message', handler);
+        ws.removeEventListener?.('error', onError);
+        signal?.removeEventListener('abort', onAbort);
+      };
+      const finish = (error, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
         try { ws.close(); } catch (e) {}
-        reject(new Error('CDP evaluate timeout (15s)'));
-      }, 15000);
+        if (error) reject(error); else resolve(value);
+      };
+      const timer = setTimeout(() => finish(new Error('CDP evaluate timeout (15s)')), 15000);
+      const handler = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data.id !== requestId) return;
+          if (data.error) finish(new Error(`CDP error: ${JSON.stringify(data.error)}`));
+          else finish(null, data.result?.result?.value);
+        } catch (e) {
+          finish(e);
+        }
+      };
+      const onError = () => finish(new Error('CDP WebSocket error'));
+      const onAbort = () => finish(signal.reason || new Error('CDP request aborted'));
 
       ws.onopen = () => {
         ws.send(JSON.stringify({
-          id: 1,
+          id: requestId,
           method: 'Runtime.evaluate',
           params: {
             expression,
@@ -47,35 +72,22 @@ class SessionKeeper {
           }
         }));
       };
-
-      ws.onmessage = (msg) => {
-        clearTimeout(timer);
-        try {
-          const data = JSON.parse(msg.data);
-          ws.close();
-          if (data.error) {
-            reject(new Error(`CDP error: ${JSON.stringify(data.error)}`));
-          } else {
-            resolve(data.result?.result?.value);
-          }
-        } catch (e) {
-          ws.close();
-          reject(e);
-        }
-      };
-
-      ws.onerror = (err) => {
-        clearTimeout(timer);
-        reject(err);
-      };
+      ws.addEventListener?.('message', handler);
+      ws.addEventListener?.('error', onError);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) onAbort();
     });
   }
 
   async getBrowserTargets() {
     try {
-      const res = await fetch(`${this.cdpUrl}/json`);
+      const res = await fetchWithDeadline(`${this.cdpUrl}/json`, {}, {
+        timeoutMs: 5_000,
+        maxBytes: 512 * 1024,
+      });
       if (!res.ok) throw new Error(`CDP HTTP ${res.status}: ${res.statusText}`);
-      const targets = await res.json();
+      const targets = await readResponseJson(res, 512 * 1024);
+      if (!Array.isArray(targets)) throw new Error('CDP target list was not an array.');
       const dsTabs = targets.filter(t => t.url && t.url.includes('chat.deepseek.com'));
       const sidepanel = targets.find(t => t.url && t.url.includes('kdmpkkahkhdmdhfkdihkopikgcocbpbf/sidepanel.html'));
       return { dsTabs, sidepanel, allTargets: targets };
@@ -270,6 +282,9 @@ class SessionKeeper {
     let targetTab = null;
     if (sessionId && sessionId !== 'current') {
       targetTab = dsTabs.find(t => t.url.includes(sessionId));
+      if (!targetTab) {
+        throw new Error(`DeepSeek session '${sessionId}' was not found in CDP targets.`);
+      }
     }
     if (!targetTab) {
       targetTab = dsTabs[0];

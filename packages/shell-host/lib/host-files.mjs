@@ -13,11 +13,14 @@ export const REQUIRED_HOST_RUNTIME_FILES = [
   'package.json',
   'picker-provider.mjs',
   'process-provider.mjs',
+  'process-lifecycle.mjs',
   'router.mjs',
   'runtime-dispatcher.mjs',
   'session-provider.mjs',
+  'session-output-parser.mjs',
   'shell-mcp-host.mjs',
   'skill-provider.mjs',
+  'windows-job-object-helper.ps1',
 ];
 
 export function copyHostRuntime(nativeSourceDir, installDir) {

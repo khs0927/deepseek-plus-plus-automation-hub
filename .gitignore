@@ -33,6 +33,7 @@ integrations/seumter/**/session*
 integrations/seumter/src/config/*_project.json
 integrations/seumter/src/config/architect_profile.json
 .tmp-deepseek-live/
+.tmp-deepseek-e2e/
 
 # Editor directories and files
 .vscode/*

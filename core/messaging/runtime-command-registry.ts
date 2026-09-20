@@ -11,6 +11,8 @@ import type { PersistenceRuntimeCommandContracts } from './persistence-runtime-c
 import type { ToolRuntimeCommandContracts } from './tool-runtime-contracts';
 import type { DeepSeekRuntimeCommandContracts } from './deepseek-runtime-contracts';
 import type { BackgroundRuntimeCommandContracts } from './background-runtime-contracts';
+import type { ProjectKnowledgeRuntimeCommandContracts } from './project-knowledge-runtime-contracts';
+import type { ProjectExecutionPolicyRuntimeCommandContracts } from './project-execution-policy-runtime-contracts';
 
 export {
   CLIENT_ONLY_RUNTIME_COMMAND_TYPES,
@@ -30,7 +32,9 @@ export interface TypedRuntimeCommandContracts
   extends PersistenceRuntimeCommandContracts,
   ToolRuntimeCommandContracts,
   DeepSeekRuntimeCommandContracts,
-  BackgroundRuntimeCommandContracts {
+  BackgroundRuntimeCommandContracts,
+  ProjectKnowledgeRuntimeCommandContracts,
+  ProjectExecutionPolicyRuntimeCommandContracts {
   GET_CONFIG: {
     request: { type: 'GET_CONFIG' };
     response: { version: string };

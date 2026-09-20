@@ -1098,10 +1098,23 @@ If you need Shell MCP or local file tools, follow the Shell Native Host instruct
 ### Build from Source
 
 ```bash
-git clone https://github.com/zhu1090093659/deepseek-pp.git
-cd deepseek-pp
-npm install
-npm run build
+git clone https://github.com/khs0927/deepseek-plus-plus-automation-hub.git
+cd deepseek-plus-plus-automation-hub
+npm ci
+npm run setup -- --browser all
+```
+
+`npm run setup` checks Node.js 18.17 or newer, creates production builds for the selected browsers, and automatically registers the Firefox Native Host. Chrome and Edge require a one-time developer-mode load so the browser-generated extension ID can be read; then register the Native Host with:
+
+```bash
+npm run setup -- --browser chrome --chrome-extension-id <extension-id>
+npm run setup -- --browser edge --edge-extension-id <extension-id>
+```
+
+Login, API keys, and MCP credentials are intentionally left to the user. Check installation with `npm run setup:status -- --browser all`. The real-browser multi-chat smoke can be started with:
+
+```bash
+npm run e2e:browser -- --browser edge --chat-url https://chat.deepseek.com/ --chat-url https://chat.deepseek.com/
 ```
 
 By default, `npm run build` creates the Chrome MV3 build. Cross-browser builds:
@@ -1119,6 +1132,7 @@ Shell MCP host smoke check:
 
 ```bash
 npm run smoke:shell
+npm run smoke:windows-job
 ```
 
 | Browser | Load entry | Build directory |

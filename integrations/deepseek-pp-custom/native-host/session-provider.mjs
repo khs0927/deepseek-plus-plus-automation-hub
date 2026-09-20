@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { homedir, platform } from 'node:os';
 import {
@@ -10,6 +10,8 @@ import {
 } from './contracts.mjs';
 import { createChildEnv } from './os-adapter.mjs';
 import { formatExecSummary } from './process-provider.mjs';
+import { createBoundedUtf8Collector, createSentinelOutputParser } from './session-output-parser.mjs';
+import { terminateProcessTree } from './process-lifecycle.mjs';
 
 export function createSessionProvider({ logLine }) {
   const shellSessions = new Map();
@@ -97,6 +99,11 @@ export function createSessionProvider({ logLine }) {
       session.closed = true;
       if (shellSessions.has(sessionId)) closeShellSession(sessionId, 'process_exited');
     });
+    child.on('error', error => {
+      session.closed = true;
+      logLine(`Session ${sessionId} process error: ${error instanceof Error ? error.message : String(error)}`);
+      if (shellSessions.has(sessionId)) closeShellSession(sessionId, 'process_error');
+    });
 
     shellSessions.set(sessionId, session);
     armSessionIdleTimer(session);
@@ -137,17 +144,7 @@ export function createSessionProvider({ logLine }) {
         logLine(`Could not kill session process group ${child.pid}; falling back to the shell process: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
-    // Windows: Use taskkill /T /F to kill the entire process tree including resident grandchildren.
-    if (platform() === 'win32') {
-      try {
-        execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
-      } catch {}
-    }
-    try {
-      child.kill('SIGKILL');
-    } catch (error) {
-      logLine(`Could not kill session shell ${child.pid}: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    void terminateProcessTree(child, { logLine, reason: 'session_close' });
   }
 
   function closeShellSession(sessionId, reason) {
@@ -163,7 +160,7 @@ export function createSessionProvider({ logLine }) {
     logLine(`Session ${sessionId} closed (${reason}).`);
   }
 
-  async function execInShellSession(args) {
+  async function execInShellSession(args, { signal } = {}) {
     const sessionId = args?.session_id;
     const command = args?.command;
     if (typeof sessionId !== 'string' || sessionId.trim().length === 0) {
@@ -197,7 +194,7 @@ export function createSessionProvider({ logLine }) {
 
     try {
       // Serialize commands directed to this specific session only
-      const runTask = () => runInSession(session, command, { timeoutMs });
+      const runTask = () => runInSession(session, command, { timeoutMs, signal });
       session.tail = (session.tail || Promise.resolve()).then(runTask, runTask);
       const result = await session.tail;
       session.lastActivityAt = Date.now();
@@ -214,119 +211,52 @@ export function createSessionProvider({ logLine }) {
     }
   }
 
-  function runInSession(session, command, { timeoutMs }) {
+  function runInSession(session, command, { timeoutMs, signal }) {
     return new Promise((resolve, reject) => {
       const { child } = session;
       const token = randomUUID();
       const markerLine = buildSessionEndMarkerLine(token);
       const markerText = `${SESSION_MARKER_PREFIX}${token}__:`;
-
-      // One write: the user's command, then the exit-code marker. POSIX shells
-      // execute line by line; PowerShell in `-Command -` mode reads the whole
-      // stdin script but still runs statements in order.
-      const script = platform() === 'win32'
-        ? `${command}\n${markerLine}\n`
-        : `${command}\n${markerLine}\n`;
-      try {
-        child.stdin.write(script);
-      } catch (err) {
-        reject(new Error(`Failed to write to session shell: ${err.message}`));
-        return;
+      const parser = createSentinelOutputParser({ marker: markerText, maxOutputBytes: SESSION_MAX_OUTPUT_BYTES });
+      const stderr = createBoundedUtf8Collector(SESSION_MAX_OUTPUT_BYTES);
+      let settled = false;
+      let timer = null;
+      let abortHandler = null;
+      function detach() { if (timer) clearTimeout(timer); child.stdout.off('data', onStdout); child.stderr.off('data', onStderr); child.off('exit', onExit); child.stdin.off('error', onStdinError); if (signal && abortHandler) signal.removeEventListener('abort', abortHandler); }
+      function finish(result) {
+        if (settled) return;
+        settled = true;
+        detach();
+        const stderrResult = stderr.snapshot();
+        resolve({ command, shell: session.shell, session_id: session.id, ...result, stderr: stderrResult.text, truncated: result.truncated || stderrResult.truncated, timedOut: false });
       }
-
-      const stdoutChunks = [];
-      let stdoutBytes = 0;
-      let stderrText = '';
-      let stderrBytes = 0;
-      let resolved = false;
-      let timedOut = false;
-      let onExit = null;
-
-      const timer = setTimeout(() => {
-        timedOut = true;
+      function onStderr(chunk) { stderr.push(chunk); }
+      function onStdout(chunk) { const parsed = parser.push(chunk); if (parsed) finish({ exitCode: parsed.exitCode, stdout: parsed.stdout, truncated: parsed.truncated }); }
+      function onStdinError(error) {
+        if (settled) return;
+        settled = true;
+        detach();
+        reject(new Error(`Failed to write to session shell: ${error instanceof Error ? error.message : String(error)}`));
+      }
+      function onExit(exitCode) {
+        if (settled) return;
+        const snapshot = parser.snapshot();
+        finish({ exitCode: typeof exitCode === 'number' ? exitCode : 1, stdout: snapshot.stdout.replace(/\r?\n$/, ''), truncated: snapshot.truncated, shellExited: true });
+      }
+      child.stdout.on('data', onStdout);
+      child.stderr.on('data', onStderr);
+      child.once('exit', onExit);
+      child.stdin.once('error', onStdinError);
+      abortHandler = () => { if (settled) return; settled = true; detach(); closeShellSession(session.id, 'exec_cancelled'); reject(new Error('Persistent shell command was cancelled.')); };
+      signal?.addEventListener('abort', abortHandler, { once: true });
+      timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
         detach();
         reject(new Error(`Command timed out after ${timeoutMs} ms; session shell killed.`));
       }, timeoutMs);
-
-      function detach() {
-        child.stdout.off('data', onStdout);
-        child.stderr.off('data', onStderr);
-        if (onExit) child.off('exit', onExit);
-      }
-
-      function onStderr(chunk) {
-        if (stderrBytes < SESSION_MAX_OUTPUT_BYTES) {
-          const remaining = SESSION_MAX_OUTPUT_BYTES - stderrBytes;
-          stderrText += chunk.toString('utf8').slice(0, remaining);
-        }
-        stderrBytes += chunk.length;
-      }
-
-      function onStdout(chunk) {
-        const text = chunk.toString('utf8');
-        // Scan for the marker line; accumulate everything before it as stdout.
-        const combined = stdoutChunks.concat([text]).join('');
-        const markerIdx = combined.indexOf(markerText);
-        if (markerIdx === -1) {
-          // Not yet; keep what we have under the byte budget.
-          stdoutChunks.length = 0;
-          stdoutChunks.push(combined);
-          stdoutBytes = Buffer.byteLength(combined, 'utf8');
-          if (stdoutBytes > SESSION_MAX_OUTPUT_BYTES) {
-            stdoutChunks[0] = stdoutChunks[0].slice(0, SESSION_MAX_OUTPUT_BYTES);
-          }
-          return;
-        }
-
-        // Marker found. Parse exit code from the rest of the marker line.
-        resolved = true;
-        clearTimeout(timer);
-        detach();
-
-        const before = combined.slice(0, markerIdx);
-        const afterMarker = combined.slice(markerIdx + markerText.length);
-        const newlineIdx = afterMarker.indexOf('\n');
-        const exitToken = newlineIdx === -1 ? afterMarker.trim() : afterMarker.slice(0, newlineIdx).trim();
-        // Exit token may carry a leading ':' already consumed; strip any non-digit trailing chars.
-        const exitMatch = exitToken.match(/^(-?\d+)/);
-        const exitCode = exitMatch ? Number.parseInt(exitMatch[1], 10) : 0;
-
-        const stdout = before.replace(/\r?\n$/, '');
-        resolve({
-          command,
-          shell: session.shell,
-          session_id: session.id,
-          exitCode: timedOut ? -1 : exitCode,
-          stdout,
-          stderr: stderrText,
-          truncated: stdoutBytes > SESSION_MAX_OUTPUT_BYTES || stderrBytes > SESSION_MAX_OUTPUT_BYTES,
-          timedOut,
-        });
-      }
-
-      child.stdout.on('data', onStdout);
-      child.stderr.on('data', onStderr);
-
-      // If the command kills the shell itself (e.g. `exit N`), treat the shell's
-      // exit code as the command's result rather than a generic failure. The
-      // session is dead either way — caller will get "session not found" on reuse.
-      onExit = (exitCode) => {
-        if (resolved || timedOut) return;
-        clearTimeout(timer);
-        detach();
-        resolve({
-          command,
-          shell: session.shell,
-          session_id: session.id,
-          exitCode: typeof exitCode === 'number' ? exitCode : 1,
-          stdout: stdoutChunks.join('').replace(/\r?\n$/, ''),
-          stderr: stderrText,
-          truncated: stdoutBytes > SESSION_MAX_OUTPUT_BYTES || stderrBytes > SESSION_MAX_OUTPUT_BYTES,
-          timedOut: false,
-          shellExited: true,
-        });
-      };
-      child.once('exit', onExit);
+      try { child.stdin.write(`${command}\n${markerLine}\n`); }
+      catch (error) { onStdinError(error); }
     });
   }
 

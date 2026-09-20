@@ -3,6 +3,10 @@ import {
   getCurrentSyncIdentityPort,
   type SyncIdentityPort,
 } from './identity-port';
+import {
+  fetchWithSyncTimeout,
+  type SyncRequestOptions,
+} from './request';
 
 /**
  * Shared OAuth helpers for cloud-sync providers (Google Drive, OneDrive).
@@ -121,6 +125,7 @@ export async function getAccessToken(
   refreshUrl: string,
   tokenParams: Record<string, string>,
   t: SyncErrorTranslator = defaultSyncErrorTranslator,
+  request: SyncRequestOptions = {},
 ): Promise<string> {
   const credentialFingerprint = await fingerprintCredential(refreshToken);
   const cached = tokenCache.get(cacheKey);
@@ -130,10 +135,13 @@ export async function getAccessToken(
   if (cached) tokenCache.delete(cacheKey);
 
   const body = new URLSearchParams({ ...tokenParams, refresh_token: refreshToken, grant_type: 'refresh_token' });
-  const res = await fetch(refreshUrl, {
+  const res = await fetchWithSyncTimeout(refreshUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+  }, {
+    ...request,
+    maxBytes: request.maxBytes ?? 1 * 1024 * 1024,
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
@@ -175,19 +183,20 @@ export async function authedFetch(
   input: string,
   init: RequestInit,
   t: SyncErrorTranslator = defaultSyncErrorTranslator,
+  request: SyncRequestOptions = {},
 ): Promise<Response> {
-  const token = await getAccessToken(cacheKey, refreshToken, refreshUrl, refreshParams, t);
-  const res = await fetch(input, {
+  const token = await getAccessToken(cacheKey, refreshToken, refreshUrl, refreshParams, t, request);
+  const res = await fetchWithSyncTimeout(input, {
     ...init,
     headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${token}` },
-  });
+  }, request);
   if (res.status === 401) {
     invalidateToken(cacheKey);
-    const fresh = await getAccessToken(cacheKey, refreshToken, refreshUrl, refreshParams, t);
-    return fetch(input, {
+    const fresh = await getAccessToken(cacheKey, refreshToken, refreshUrl, refreshParams, t, request);
+    return fetchWithSyncTimeout(input, {
       ...init,
       headers: { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${fresh}` },
-    });
+    }, request);
   }
   return res;
 }
@@ -199,12 +208,16 @@ export async function exchangeCodeForTokens(
   tokenUrl: string,
   params: Record<string, string>,
   t: SyncErrorTranslator = defaultSyncErrorTranslator,
+  request: SyncRequestOptions = {},
 ): Promise<TokenResponse> {
   const body = new URLSearchParams({ ...params, grant_type: 'authorization_code' });
-  const res = await fetch(tokenUrl, {
+  const res = await fetchWithSyncTimeout(tokenUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+  }, {
+    ...request,
+    maxBytes: request.maxBytes ?? 1 * 1024 * 1024,
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');

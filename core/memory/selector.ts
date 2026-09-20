@@ -109,11 +109,14 @@ export function selectMemories(
   scored.sort((a, b) => b.score - a.score);
 
   const selected: Memory[] = [];
-  let remaining = budget;
+  let remaining = Math.max(0, budget);
 
   for (const { memory } of scored) {
     const cost = estimateTokens(formatMemoryLine(memory));
-    if (remaining - cost < 0 && selected.length > 0) break;
+    // Never admit an oversized first item (the previous condition allowed a
+    // single memory to exceed the caller's hard prompt budget). Continue
+    // scanning because a later, smaller memory may still fit.
+    if (cost > remaining) continue;
     selected.push(memory);
     remaining -= cost;
   }

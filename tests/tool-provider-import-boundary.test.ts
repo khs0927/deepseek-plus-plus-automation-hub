@@ -29,6 +29,8 @@ describe('tool provider import boundary', () => {
       './history',
       './local-skill-cwd',
       './provider-registry',
+      './scheduler',
+      './scheduler-policy',
       './types',
     ]);
   });

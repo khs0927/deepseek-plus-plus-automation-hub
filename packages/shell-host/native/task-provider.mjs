@@ -12,13 +12,10 @@
 
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { execFile } from 'node:child_process';
 import { homedir, platform } from 'node:os';
-import { promisify } from 'node:util';
 import { DEFAULT_SHELL, MAX_TASKS, MAX_TASK_OUTPUT_BYTES } from './contracts.mjs';
 import { createChildEnv, createShellInvocation } from './os-adapter.mjs';
-
-const execFileAsync = promisify(execFile);
+import { terminateProcessTree } from './process-lifecycle.mjs';
 
 export function createTaskToolHandlers({ logLine }) {
   // task_id -> task record. Bounded by MAX_TASKS so a runaway caller cannot
@@ -26,7 +23,7 @@ export function createTaskToolHandlers({ logLine }) {
   // is killed) to make room, mirroring an LRU eviction.
   const tasks = new Map();
 
-  function spawnTask(args) {
+  async function spawnTask(args) {
     const command = typeof args?.command === 'string' ? args.command.trim() : '';
     if (!command) return toolError('command is required and must be a non-empty string.');
 
@@ -37,9 +34,14 @@ export function createTaskToolHandlers({ logLine }) {
     const env = createChildEnv(args?.env);
 
     if (tasks.size >= MAX_TASKS) {
-      const oldestId = tasks.keys().next().value;
-      if (oldestId !== undefined) {
-        killTaskTree(oldestId, 'max_tasks_reached');
+      const oldest = [...tasks.values()].find((candidate) => candidate.state !== 'running')
+        ?? tasks.values().next().value;
+      if (oldest) {
+        if (oldest.state === 'running') await killTaskTree(oldest.id, 'max_tasks_reached');
+        if (oldest.state === 'outcome_unknown' || oldest.state === 'terminating') {
+          return toolError('Task capacity is full and an existing process could not be confirmed as terminated. Retry after task_status confirms an inactive task.');
+        }
+        tasks.delete(oldest.id);
       }
     }
 
@@ -66,6 +68,8 @@ export function createTaskToolHandlers({ logLine }) {
     }
 
     const taskId = randomUUID();
+    let resolveExit;
+    const exitPromise = new Promise((resolve) => { resolveExit = resolve; });
     const task = {
       id: taskId,
       name,
@@ -83,6 +87,8 @@ export function createTaskToolHandlers({ logLine }) {
       stdoutBytes: 0,
       stderrBytes: 0,
       child,
+      exitPromise,
+      resolveExit,
     };
     tasks.set(taskId, task);
     logLine(`task_spawn OK id=${taskId} pid=${task.pid} command=${command.slice(0, 120)}`);
@@ -100,16 +106,22 @@ export function createTaskToolHandlers({ logLine }) {
     child.stderr.on('data', capture('stderr'));
 
     child.on('exit', (exitCode, signal) => {
-      task.state = exitCode === 0 ? 'exited' : 'failed';
-      if (task.state === 'failed' && exitCode === null && signal) task.state = 'killed';
+      if (task.state === 'running') {
+        task.state = exitCode === 0 ? 'exited' : 'failed';
+        if (task.state === 'failed' && exitCode === null && signal) task.state = 'killed';
+      } else if (task.state === 'terminating') {
+        task.state = 'killed';
+      }
       task.exitCode = exitCode ?? null;
       task.signal = signal;
       task.finishedAt = Date.now();
+      task.resolveExit?.();
       logLine(`task ended id=${taskId} state=${task.state} exitCode=${exitCode} signal=${signal ?? 'none'}`);
     });
     child.on('error', (error) => {
       task.state = 'failed';
       task.finishedAt = Date.now();
+      task.resolveExit?.();
       const message = error instanceof Error ? error.message : String(error);
       appendText(task, 'stderr', `[task spawn error] ${message}\n`);
       logLine(`task error id=${taskId} error=${message}`);
@@ -212,56 +224,45 @@ export function createTaskToolHandlers({ logLine }) {
         structuredContent: { ok: true, data: { task_id: taskId, state: task.state, closed: false } },
       };
     }
-    killTaskTree(taskId, 'task_kill');
+    const termination = await killTaskTree(taskId, 'task_kill');
     const after = tasks.get(taskId);
+    const closed = after?.state === 'killed' || after?.state === 'exited';
     return {
-      content: [{ type: 'text', text: `Task ${taskId} killed.` }],
+      isError: !closed,
+      content: [{ type: 'text', text: closed ? `Task ${taskId} killed.` : `Task ${taskId} termination is unconfirmed.` }],
       structuredContent: {
-        ok: true,
-        data: { task_id: taskId, state: after?.state ?? 'killed', closed: true },
+        ok: closed,
+        data: { task_id: taskId, state: after?.state ?? 'outcome_unknown', closed, termination },
       },
     };
   }
 
   // Kill one task's process tree and mark it killed. Idempotent: safe to call
   // for an already-exited task (the record simply reflects the prior state).
-  function killTaskTree(taskId, reason) {
+  async function killTaskTree(taskId, reason) {
     const task = tasks.get(taskId);
-    if (!task) return;
-    if (task.child.exitCode === null && typeof task.child.pid === 'number') {
-      killProcessTree(task.child, task.child.pid);
-    }
+    if (!task) return { attempted: false, method: 'none', guaranteed: false };
     if (task.state === 'running') {
-      task.state = 'killed';
+      task.state = 'terminating';
       task.finishedAt = Date.now();
     }
+    const termination = task.child.exitCode === null && typeof task.child.pid === 'number'
+      ? await terminateProcessTree(task.child, { logLine, reason })
+      : { attempted: false, method: 'already-exited', guaranteed: false };
+    let exited = true;
+    if (task.state === 'terminating') {
+      exited = await Promise.race([
+        task.exitPromise.then(() => true),
+        new Promise((resolve) => setTimeout(() => resolve(false), 5_000)),
+      ]);
+      task.state = exited ? 'killed' : 'outcome_unknown';
+    }
     logLine(`task killed id=${taskId} reason=${reason}`);
+    return { ...termination, exited };
   }
 
-  function killProcessTree(child, pid) {
-    if (platform() === 'win32') {
-      // taskkill /T walks the whole child tree, which is what "entire process
-      // tree" in the tool description promises. Fall back to a direct kill if
-      // taskkill itself is unavailable.
-      execFileAsync('taskkill', ['/pid', String(pid), '/T', '/F'])
-        .catch((error) => {
-          logLine(`taskkill failed for pid=${pid}; falling back to child.kill: ${error instanceof Error ? error.message : String(error)}`);
-          try { child.kill('SIGKILL'); } catch { /* already gone */ }
-        });
-      return;
-    }
-    try {
-      process.kill(-pid, 'SIGKILL');
-    } catch (error) {
-      logLine(`Could not kill task process group ${pid}; falling back to the task process: ${error instanceof Error ? error.message : String(error)}`);
-      try { child.kill('SIGKILL'); } catch { /* already gone */ }
-    }
-  }
-
-  function shutdown() {
-    for (const taskId of [...tasks.keys()]) {
-      killTaskTree(taskId, 'host_shutdown');
-    }
+  async function shutdown() {
+    await Promise.all([...tasks.keys()].map(taskId => killTaskTree(taskId, 'host_shutdown')));
     tasks.clear();
   }
 

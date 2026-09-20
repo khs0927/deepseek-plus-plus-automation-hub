@@ -8,6 +8,7 @@ export function createNativeEnvelopeDispatcher({
 }) {
   const environmentReady = Promise.resolve(hostEnvironmentReady);
   const inFlight = new Set();
+  const requestControllers = new Map();
   // One FIFO per persistent shell session. Commands addressing the same
   // shell_session_* session_id share one child stdin/stdout pair and its
   // end-marker protocol, so they must keep input/output order. Everything
@@ -18,9 +19,17 @@ export function createNativeEnvelopeDispatcher({
   const sessionTails = new Map();
 
   function scheduleEnvelope(envelope) {
+    if (isCancelEnvelope(envelope)) {
+      cancelRequest(envelope.message.params.requestId);
+      return;
+    }
     const toolCall = isToolCallEnvelope(envelope);
     const sessionKey = toolCall ? shellSessionKeyOf(envelope) : null;
-    const run = () => handleEnvelope(envelope, toolCall);
+    const requestId = envelope?.message?.id;
+    const controller = requestId === undefined || requestId === null ? null : new AbortController();
+    const requestKey = requestId === undefined || requestId === null ? null : requestKeyOf(requestId);
+    if (requestKey !== null) requestControllers.set(requestKey, controller);
+    const run = () => handleEnvelope(envelope, toolCall, controller?.signal);
     let task;
     if (sessionKey === null) {
       task = run();
@@ -36,9 +45,20 @@ export function createNativeEnvelopeDispatcher({
     }
     inFlight.add(task);
     void task.then(
-      () => inFlight.delete(task),
-      () => inFlight.delete(task),
+      () => finishRequest(requestKey, controller, task),
+      () => finishRequest(requestKey, controller, task),
     );
+  }
+
+  function cancelRequest(requestId) {
+    const key = requestKeyOf(requestId);
+    const controller = requestControllers.get(key);
+    if (controller && !controller.signal.aborted) controller.abort(new Error(`Native request ${String(requestId)} was cancelled.`));
+  }
+
+  function finishRequest(requestKey, controller, task) {
+    inFlight.delete(task);
+    if (requestKey !== null && requestControllers.get(requestKey) === controller) requestControllers.delete(requestKey);
   }
 
   function dropSessionTail(sessionKey, tailPromise) {
@@ -58,10 +78,10 @@ export function createNativeEnvelopeDispatcher({
     return `shell-session:${sessionId}`;
   }
 
-  async function handleEnvelope(envelope, waitForHostEnvironment) {
+  async function handleEnvelope(envelope, waitForHostEnvironment, signal) {
     try {
       if (waitForHostEnvironment) await environmentReady;
-      const response = await router.handleEnvelope(envelope);
+      const response = await router.handleEnvelope(envelope, { signal });
       if (response) await channel.writeMessage(response);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -80,6 +100,19 @@ export function createNativeEnvelopeDispatcher({
       await Promise.allSettled([...inFlight]);
     },
   });
+}
+
+function isCancelEnvelope(envelope) {
+  return envelope?.protocol === 'deepseek-pp-mcp-native'
+    && envelope?.version === 1
+    && envelope?.message?.jsonrpc === '2.0'
+    && envelope?.message?.method === '$/cancelRequest'
+    && envelope?.message?.params
+    && Object.prototype.hasOwnProperty.call(envelope.message.params, 'requestId');
+}
+
+function requestKeyOf(requestId) {
+  return `${typeof requestId}:${String(requestId)}`;
 }
 
 function isToolCallEnvelope(envelope) {

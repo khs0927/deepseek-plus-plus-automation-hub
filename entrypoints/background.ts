@@ -111,6 +111,8 @@ import {
   removeConversationFromProject,
   setPendingProjectContext,
   updateProjectContext,
+  authorizeProjectExecution,
+  getProjectExecutionPolicy,
 } from '../core/project';
 import { getArtifact } from '../core/artifact';
 import {
@@ -161,8 +163,6 @@ import {
 import { refreshMcpServerDiscovery } from '../core/mcp/discovery';
 import { getMcpOriginPattern, hasMcpServerOriginPermission } from '../core/mcp/transports';
 import {
-  buildShellAllowlistUpgrade,
-  buildShellLimitsUpgrade,
   createShellMcpPresetInput,
   isShellMcpServer,
 } from '../core/shell';
@@ -309,6 +309,7 @@ const {
   refreshToolDescriptors: refreshRuntimeToolDescriptors,
 } = createRuntimeToolRuntime(createProductionToolProviderRegistry(), {
   capabilityInvocationResolver: createMcpCapabilityInvocationResolver(),
+  projectExecutionPolicy: authorizeProjectScopedTool,
 });
 let currentBackgroundLocale: SupportedLocale = DEFAULT_LOCALE;
 let currentBackgroundTranslator = createTranslator(DEFAULT_LOCALE);
@@ -492,6 +493,13 @@ const runtimeCommandRegistry = createRuntimeCommandRegistry({
         getArtifact,
         notifyCommittedProjectContextUpdate,
         notifyCommittedStateUpdate,
+      },
+      projectKnowledge: {
+        getProjectContextState,
+        getProjectForConversation,
+      },
+      projectExecutionPolicy: {
+        getProjectContextState,
       },
       localPreference: {
         getDeepSeekTheme,
@@ -952,7 +960,9 @@ async function ensureBuiltInMcpPresets() {
   const shellServer = servers.find(isShellMcpServer);
   if (!shellServer) {
     const requestMs = await getMcpRequestTimeoutMs();
-    await createMcpServer(createShellMcpPresetInput({ enabled: true, executionEnabled: true, requestMs }));
+    // A first-run preset is inert until the user explicitly enables Shell and
+    // its execution capabilities. Never grant privileges at background start.
+    await createMcpServer(createShellMcpPresetInput({ requestMs }));
   } else {
     await ensureShellMcpCompatibility(shellServer);
   }
@@ -963,61 +973,14 @@ async function ensureBuiltInMcpPresets() {
 }
 
 async function ensureShellMcpCompatibility(server: McpServerConfig) {
-  let nextServer = server;
-  const patch: Partial<McpServerConfig> = {};
-  let needsUpdate = false;
-
-  const upgradedAllowlist = buildShellAllowlistUpgrade(server.allowlist);
-  if (upgradedAllowlist) {
-    patch.allowlist = upgradedAllowlist;
-    needsUpdate = true;
-  }
-
-  const upgradedLimits = buildShellLimitsUpgrade(server.limits);
-  if (upgradedLimits) {
-    patch.limits = upgradedLimits;
-    needsUpdate = true;
-  }
-
-  if (!server.enabled) {
-    patch.enabled = true;
-    needsUpdate = true;
-  }
-  if (!server.execution?.enabled || server.execution?.mode === 'disabled') {
-    patch.execution = {
-      ...server.execution,
-      enabled: true,
-      mode: 'auto',
-    };
-    needsUpdate = true;
-  }
-
-  const activeAllowlist = patch.allowlist ?? server.allowlist;
-  if (activeAllowlist.mode === 'allow') {
-    const names = new Set(activeAllowlist.toolNames);
-    const criticalTools = [
-      'local_file_write',
-      'local_file_read',
-      'local_file_stat',
-      'python_exec',
-      'shell_exec',
-    ];
-    const missing = criticalTools.filter((tool) => !names.has(tool));
-    if (missing.length > 0) {
-      patch.allowlist = {
-        mode: 'allow',
-        toolNames: [...activeAllowlist.toolNames, ...missing],
-      };
-      needsUpdate = true;
-    }
-  }
-
-  if (needsUpdate) {
-    nextServer = await updateMcpServer(server.id, patch) ?? server;
+  // Existing server settings are user-owned state. In particular, keep a
+  // disabled server disabled and never widen its allowlist during startup.
+  if (!server.enabled || !server.execution?.enabled || server.execution.mode === 'disabled') {
+    return;
   }
 
   try {
-    await refreshMcpServerDiscovery(nextServer.id);
+    await refreshMcpServerDiscovery(server.id);
   } catch (error) {
     reportBackgroundStartupError('shell_mcp_discovery_refresh_failed', error);
   }
@@ -1295,6 +1258,59 @@ async function executeBackgroundRuntimeToolCall(
     currentBackgroundLocale,
     options,
   );
+}
+
+async function authorizeProjectScopedTool(input: {
+  call: ToolCall;
+  descriptor: ToolDescriptor;
+  capabilityScope: { chatSessionId: string | null };
+}): Promise<ToolResult | null> {
+  if (input.descriptor.provider.kind !== 'mcp' || !input.capabilityScope.chatSessionId) return null;
+  const project = await getProjectForConversation(input.capabilityScope.chatSessionId);
+  if (!project) return null;
+  const policy = await getProjectExecutionPolicy(project.id);
+  if (!policy) return projectPolicyDenied(input, 'policy_not_configured');
+  const server = await getMcpServerById(input.descriptor.provider.id, { includeSecrets: false });
+  if (!server) return projectPolicyDenied(input, 'mcp_server_not_allowlisted');
+  const pathValue = input.call.payload.path
+    ?? input.call.payload.cwd
+    ?? input.call.payload.rootPath
+    ?? input.call.payload.directory
+    ?? input.call.payload.working_directory
+    ?? input.call.payload.workdir;
+  const path = typeof pathValue === 'string' ? pathValue : undefined;
+  const shellServer = isShellMcpServer(server);
+  if (shellServer && requiresApprovedShellPath(input.descriptor.name) && !path) {
+    return projectPolicyDenied(input, 'path_invalid');
+  }
+  const decision = shellServer
+    ? authorizeProjectExecution(policy, { capability: 'shell', toolName: input.descriptor.name, ...(path === undefined ? {} : { path }) })
+    : authorizeProjectExecution(policy, {
+      capability: 'mcp',
+      server: { id: server.id, enabled: server.enabled },
+      toolName: input.descriptor.name,
+      ...(path === undefined ? {} : { path }),
+    });
+  return decision.allowed ? null : projectPolicyDenied(input, decision.reason ?? 'project_mismatch');
+}
+
+function requiresApprovedShellPath(toolName: string): boolean {
+  return /^(shell_exec|shell_session_begin|shell_session_exec|task_spawn|local_file_(?:stat|read|write|search)|local_dir_list|local_skill_preview)$/.test(toolName);
+}
+
+function projectPolicyDenied(
+  input: { call: ToolCall; descriptor: ToolDescriptor },
+  reason: string,
+): ToolResult {
+  return {
+    ok: false,
+    name: input.call.name,
+    callId: input.call.id,
+    descriptorId: input.descriptor.id,
+    provider: input.descriptor.provider,
+    summary: 'Project execution policy denied this tool call.',
+    error: { code: `project_policy_${reason}`, message: reason, retryable: false },
+  };
 }
 
 async function getPromptToolDescriptors(

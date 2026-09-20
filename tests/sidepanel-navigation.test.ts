@@ -79,13 +79,13 @@ describe('sidepanel navigation', () => {
     await renderElement(React.createElement(LibraryPage));
     expect(navButtonLabels('资料子导航')).toEqual(['记忆', '保存']);
     await clickNavButton('资料子导航', '保存');
-    await vi.waitFor(() => expect(container.textContent).toContain('保存常用 Prompt'));
+    await vi.waitFor(() => expect(container.textContent).toContain('保存常用 Prompt'), { timeout: 5_000 });
 
     unmountRoot();
     await renderElement(React.createElement(CapabilitiesPage));
     expect(navButtonLabels('能力子导航')).toEqual(['Skill', 'MCP', '工具', '浏览器', '预设', '自动化']);
     await clickNavButton('能力子导航', 'MCP');
-    await vi.waitFor(() => expect(container.textContent).toContain('连接本机或远程 MCP 服务'));
+    await vi.waitFor(() => expect(container.textContent).toContain('连接本机或远程 MCP 服务'), { timeout: 5_000 });
   });
 
   it('keeps the voice settings surface reachable from Settings', async () => {

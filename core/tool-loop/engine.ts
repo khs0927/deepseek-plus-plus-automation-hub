@@ -1,6 +1,6 @@
 import type { ToolCall, ToolExecutionRecord, ToolResult } from '../types';
 
-export type ToolLoopExecuteTool = (call: ToolCall) => Promise<ToolExecutionRecord>;
+export type ToolLoopExecuteTool = (call: ToolCall, options?: { signal?: AbortSignal }) => Promise<ToolExecutionRecord>;
 
 export interface ExecuteToolCallsOptions {
   signal?: AbortSignal;
@@ -14,7 +14,7 @@ export async function executeToolCallsSequentially(
   const results: ToolExecutionRecord[] = [];
   for (const call of calls) {
     if (options?.signal?.aborted) break;
-    results.push(await executeTool(call));
+    results.push(await executeTool(call, { signal: options?.signal }));
   }
   return results;
 }
@@ -51,16 +51,30 @@ export async function runToolContinuationLoop<TTurn>(
     if (calls.length === 0) break;
 
     const stepExecutions: ToolExecutionRecord[] = [];
-    for (let callIndex = 0; callIndex < calls.length; callIndex++) {
+    let callIndex = 0;
+    while (callIndex < calls.length) {
       assertContinuationActive(input);
-      const execution = await input.executeToolCall(
-        calls[callIndex],
-        parentMessageId,
-        { depth, callIndex },
-      );
+      const start = callIndex;
+      while (callIndex < calls.length && isIndependentRead(calls[callIndex])) callIndex++;
+      if (callIndex > start) {
+        const continuationParentMessageId = parentMessageId;
+        if (continuationParentMessageId === null) break;
+        const batch = await Promise.all(calls.slice(start, callIndex).map((call, offset) => input.executeToolCall(
+          call,
+          continuationParentMessageId,
+          { depth, callIndex: start + offset },
+        )));
+        stepExecutions.push(...batch);
+        executions.push(...batch);
+      } else {
+        const continuationParentMessageId = parentMessageId;
+        if (continuationParentMessageId === null) break;
+        const execution = await input.executeToolCall(calls[callIndex], continuationParentMessageId, { depth, callIndex });
+        stepExecutions.push(execution);
+        executions.push(execution);
+        callIndex++;
+      }
       assertContinuationActive(input);
-      stepExecutions.push(execution);
-      executions.push(execution);
     }
 
     assertContinuationActive(input);
@@ -73,6 +87,12 @@ export async function runToolContinuationLoop<TTurn>(
   }
 
   return { turn, executions };
+}
+
+function isIndependentRead(call: ToolCall): boolean {
+  const name = `${call.name} ${call.invocationName}`.toLowerCase();
+  return /(^|[_:-])(read|search|list|lookup|stat|describe|fetch|get)([_:-]|$)/.test(name)
+    && !/(write|delete|remove|update|create|send|execute|run|apply|patch)/.test(name);
 }
 
 function assertContinuationActive<TTurn>(input: ToolContinuationLoopInput<TTurn>): void {

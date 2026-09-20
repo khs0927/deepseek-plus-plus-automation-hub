@@ -98,6 +98,14 @@ export async function stageDeleteProjectContextAndMemoriesAlreadyLocked(
   await assertMemoryRecordsValidAlreadyLocked();
   return async () => {
     await deleteProjectContextState(state, projectId);
+    // The extension always has IndexedDB. Keeping this guard makes the
+    // legacy storage repository usable in pure-memory migration tests and in
+    // non-browser import tooling without turning a project delete into an
+    // unrelated environment failure.
+    if (typeof indexedDB !== 'undefined') {
+      const { deleteProjectContextDataAlreadyLocked } = await import('../project-context/store');
+      await deleteProjectContextDataAlreadyLocked(projectId);
+    }
     return deleteMemoriesForProjectAlreadyLocked(projectId);
   };
 }

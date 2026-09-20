@@ -1,20 +1,42 @@
 import { MAX_NATIVE_MESSAGE_BYTES } from './contracts.mjs';
 
 export const NATIVE_EOF = Symbol('NATIVE_EOF');
+export const DEFAULT_NATIVE_FRAME_TIMEOUT_MS = 30_000;
 
 export function createNativeMessageChannel({
   input = process.stdin,
   output = process.stdout,
   logLine,
   onInvalidFrame = () => process.exit(1),
+  frameTimeoutMs = DEFAULT_NATIVE_FRAME_TIMEOUT_MS,
+  outputWriteTimeoutMs = DEFAULT_NATIVE_FRAME_TIMEOUT_MS,
 }) {
   let buffer = Buffer.alloc(0);
   let messageResolve = null;
   const messageQueue = [];
   let inputEnded = false;
   let writeTail = Promise.resolve();
+  let partialFrameTimer = null;
+
+  function clearPartialFrameTimer() {
+    if (partialFrameTimer) clearTimeout(partialFrameTimer);
+    partialFrameTimer = null;
+  }
+
+  function armPartialFrameTimer() {
+    clearPartialFrameTimer();
+    if (frameTimeoutMs <= 0 || buffer.length === 0 || inputEnded) return;
+    partialFrameTimer = setTimeout(() => {
+      partialFrameTimer = null;
+      logLine(`Native message frame timed out with ${buffer.length} buffered bytes.`);
+      buffer = Buffer.alloc(0);
+      settleEnd();
+    }, frameTimeoutMs);
+    partialFrameTimer.unref?.();
+  }
 
   function settleEnd() {
+    clearPartialFrameTimer();
     inputEnded = true;
     if (!messageResolve) return;
     const resolve = messageResolve;
@@ -42,7 +64,10 @@ export function createNativeMessageChannel({
         onInvalidFrame(length);
         return;
       }
-      if (buffer.length < 4 + length) return;
+      if (buffer.length < 4 + length) {
+        armPartialFrameTimer();
+        return;
+      }
       const json = buffer.subarray(4, 4 + length).toString('utf8');
       buffer = buffer.subarray(4 + length);
       try {
@@ -51,6 +76,8 @@ export function createNativeMessageChannel({
         logLine(`JSON parse error: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
+    if (buffer.length === 0) clearPartialFrameTimer();
+    else armPartialFrameTimer();
   }
 
   input.on('data', chunk => {
@@ -58,7 +85,10 @@ export function createNativeMessageChannel({
     drainBuffer();
   });
   input.on('end', settleEnd);
-  input.on('error', settleEnd);
+  input.on('error', error => {
+    logLine(`Native message input error: ${error instanceof Error ? error.message : String(error)}`);
+    settleEnd();
+  });
 
   return {
     readMessage() {
@@ -67,14 +97,32 @@ export function createNativeMessageChannel({
       return new Promise(resolve => { messageResolve = resolve; });
     },
     writeMessage(message) {
-      const write = () => new Promise(resolve => {
+      const write = () => new Promise((resolve, reject) => {
         const body = Buffer.from(JSON.stringify(message), 'utf8');
         if (body.length > Math.floor(MAX_NATIVE_MESSAGE_BYTES * 0.95)) {
           logLine(`writeNativeMessage WARNING body=${body.length} bytes approaches the ${MAX_NATIVE_MESSAGE_BYTES} native messaging cap; Chrome may truncate this response.`);
         }
         const header = Buffer.alloc(4);
         header.writeUInt32LE(body.length, 0);
-        output.write(Buffer.concat([header, body]), resolve);
+        const payload = Buffer.concat([header, body]);
+        let settled = false;
+        const finish = (error) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          output.off('error', onError);
+          if (error) reject(error);
+          else resolve();
+        };
+        const onError = error => finish(error);
+        const timer = setTimeout(() => finish(new Error(`Native response write timed out after ${outputWriteTimeoutMs} ms.`)), outputWriteTimeoutMs);
+        timer.unref?.();
+        output.once('error', onError);
+        try {
+          output.write(payload, error => finish(error));
+        } catch (error) {
+          finish(error);
+        }
       });
       const result = writeTail.then(write, write);
       writeTail = result.then(() => undefined, () => undefined);

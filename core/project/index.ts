@@ -10,6 +10,8 @@ export type {
 } from './types';
 
 export { PROJECT_CONTEXT_SCHEMA_VERSION } from './types';
+export * from './execution-policy';
+export * from './execution-policy-store';
 
 export {
   createEmptyProjectContextState,

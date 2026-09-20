@@ -1,30 +1,15 @@
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { homedir, platform } from 'node:os';
 import { DEFAULT_SHELL } from './contracts.mjs';
 import { createChildEnv, createShellInvocation } from './os-adapter.mjs';
+import { terminateProcessTree } from './process-lifecycle.mjs';
 
 const MAX_TASK_BUFFER_BYTES = 512 * 1024;
 const MAX_TASK_RECORDS = 50;
 
 export function createTaskProvider({ logLine }) {
   const tasks = new Map();
-
-  function killTaskProcessTree(child) {
-    if (!child || typeof child.pid !== 'number') return;
-    if (platform() === 'win32') {
-      try {
-        execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true }, () => {});
-      } catch {}
-      try { child.kill('SIGKILL'); } catch {}
-    } else {
-      try {
-        process.kill(-child.pid, 'SIGKILL');
-      } catch {
-        try { child.kill('SIGKILL'); } catch {}
-      }
-    }
-  }
 
   async function spawnTask(args) {
     const command = args?.command;
@@ -94,6 +79,7 @@ export function createTaskProvider({ logLine }) {
         task.exitCode = typeof code === 'number' ? code : (signal ? -1 : 0);
         task.signal = signal || null;
       }
+      if (task.status === 'terminating') task.status = 'killed';
       task.endedAt = Date.now();
       logLine(`Task ${taskId} finished with code ${task.exitCode} (status: ${task.status}).`);
     });
@@ -191,13 +177,14 @@ export function createTaskProvider({ logLine }) {
     }
 
     if (task.status === 'running') {
-      task.status = 'killed';
+      task.status = 'terminating';
       task.endedAt = Date.now();
-      killTaskProcessTree(task.child);
+      const termination = await terminateProcessTree(task.child, { logLine, reason: 'task_kill' });
+      task.status = 'killed';
       logLine(`Terminated task ${taskId} (PID ${task.pid}).`);
       return {
         content: [{ type: 'text', text: `Terminated background task ${taskId} (PID ${task.pid}).` }],
-        structuredContent: { ok: true, data: { task_id: taskId, killed: true } },
+        structuredContent: { ok: true, data: { task_id: taskId, killed: true, termination } },
       };
     }
 
@@ -230,12 +217,12 @@ export function createTaskProvider({ logLine }) {
     };
   }
 
-  function shutdown() {
-    for (const task of tasks.values()) {
-      if (task.status === 'running') {
-        killTaskProcessTree(task.child);
-      }
-    }
+  async function shutdown() {
+    await Promise.all([...tasks.values()].filter(task => task.status === 'running').map(async task => {
+      task.status = 'terminating';
+      await terminateProcessTree(task.child, { logLine, reason: 'host_shutdown' });
+      task.status = 'killed';
+    }));
     tasks.clear();
   }
 

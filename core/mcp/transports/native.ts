@@ -25,6 +25,7 @@ interface PendingRequest {
 
 interface NativePortState {
   port: chrome.runtime.Port;
+  generation: number;
   pendingRequests: Map<number | string, PendingRequest>;
 }
 
@@ -41,6 +42,7 @@ const MAX_NATIVE_MESSAGE_BYTES = 1 * 1024 * 1024;
 const MAX_LOCAL_FILE_WRITE_BYTES = 900_000;
 
 const nativePortStates = new Map<string, NativePortState>();
+let nativePortGeneration = 0;
 
 function getPortState(nativeHost: string): NativePortState {
   const existing = nativePortStates.get(nativeHost);
@@ -55,11 +57,13 @@ function getPortState(nativeHost: string): NativePortState {
   const port = chrome.runtime.connectNative(nativeHost);
   const state: NativePortState = {
     port,
+    generation: ++nativePortGeneration,
     pendingRequests: new Map(),
   };
   nativePortStates.set(nativeHost, state);
 
   port.onMessage.addListener((response: any) => {
+    if (nativePortStates.get(nativeHost) !== state) return;
     const id = response?.id ?? response?.result?.id;
     const rpcId = response?.jsonrpc === '2.0' ? response.id : id;
     if (rpcId != null && state.pendingRequests.has(rpcId)) {
@@ -87,7 +91,7 @@ function getPortState(nativeHost: string): NativePortState {
       pending.reject(err);
     }
     state.pendingRequests.clear();
-    nativePortStates.delete(nativeHost);
+    if (nativePortStates.get(nativeHost) === state) nativePortStates.delete(nativeHost);
   });
 
   return state;
@@ -161,14 +165,25 @@ function sendAndWait(
       return;
     }
 
+    if (state.pendingRequests.has(requestId)) {
+      reject(new McpTransportError(
+        'mcp_native_request_duplicate',
+        `Native MCP request id ${String(requestId)} is already in flight.`,
+        { retryable: false },
+      ));
+      return;
+    }
+
     const timer = setTimeout(() => {
       signal?.removeEventListener('abort', onAbort);
+      postNativeCancellation(state, envelope, requestId);
       state.pendingRequests.delete(requestId);
       reject(new McpTransportError('mcp_native_timeout', `Native MCP request exceeded ${timeoutMs} ms.`));
     }, timeoutMs);
 
     const onAbort = () => {
       clearTimeout(timer);
+      postNativeCancellation(state, envelope, requestId);
       state.pendingRequests.delete(requestId);
       const reason = signal?.reason;
       reject(reason instanceof Error
@@ -202,6 +217,27 @@ function sendAndWait(
       reject(err);
     }
   });
+}
+
+function postNativeCancellation(
+  state: NativePortState,
+  envelope: McpNativeEnvelope,
+  requestId: number | string,
+): void {
+  try {
+    state.port.postMessage({
+      ...envelope,
+      message: {
+        jsonrpc: '2.0',
+        method: '$/cancelRequest',
+        params: { requestId },
+      },
+    });
+  } catch {
+    // The request is already timing out or being cancelled. A disconnected
+    // host cannot receive the advisory cancellation, and its pending map is
+    // still fenced by the port generation on the extension side.
+  }
 }
 
 async function createNativeEnvelope(

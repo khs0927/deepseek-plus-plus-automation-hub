@@ -1,50 +1,14 @@
 import type { Memory, NewMemory } from '../types';
 import { withSyncLocalStateLock } from '../persistence/local-state-lock';
+import type { IndexedDbTransaction } from '../persistence/indexeddb';
 import {
-  IndexedDb,
-  type IndexedDbTransaction,
-} from '../persistence/indexeddb';
-import {
-  MEMORY_DATABASE_NAME,
-  MEMORY_DATABASE_VERSION,
   MEMORY_TABLE_NAME,
-  MEMORY_TABLE_SCHEMAS,
-  migrateMemoryV1RecordToV2,
-  migrateMemoryV2RecordToV3,
 } from './schema';
+import { assertCurrentMemoryDatabaseVersion, db } from './database';
 import {
   decodeImportedMemory,
   decodePersistedMemoryRecord,
 } from './codec';
-
-// The IndexedDB version is the logical schema version x10 (the convention
-// dexie established internally): released databases live at 10/20/30 and
-// `assertCurrentMemoryDatabaseVersion` checks `backendDB().version === 30`.
-const db = new IndexedDb(MEMORY_DATABASE_NAME, [
-  {
-    version: 10,
-    stores: { [MEMORY_TABLE_NAME]: MEMORY_TABLE_SCHEMAS[1] },
-  },
-  {
-    version: 20,
-    stores: { [MEMORY_TABLE_NAME]: MEMORY_TABLE_SCHEMAS[2] },
-    migrate: (tx) => {
-      return tx.table(MEMORY_TABLE_NAME).modifyAll((memory) => {
-        Object.assign(memory, migrateMemoryV1RecordToV2(memory, crypto.randomUUID()));
-      });
-    },
-  },
-  {
-    version: 30,
-    stores: { [MEMORY_TABLE_NAME]: MEMORY_TABLE_SCHEMAS[3] },
-    migrate: (tx) => {
-      return tx.table(MEMORY_TABLE_NAME).modifyAll((memory) => {
-        Object.assign(memory, migrateMemoryV2RecordToV3(memory));
-        delete memory.projectId;
-      });
-    },
-  },
-]);
 
 const memories = db.table(MEMORY_TABLE_NAME);
 
@@ -266,13 +230,4 @@ async function readValidatedMemoryRecords(tx?: IndexedDbTransaction): Promise<Me
   ));
 }
 
-async function assertCurrentMemoryDatabaseVersion(): Promise<void> {
-  await db.open();
-  const actualVersion = db.backendDB().version;
-  const expectedVersion = MEMORY_DATABASE_VERSION * 10;
-  if (actualVersion !== expectedVersion) {
-    throw new Error(
-      `Memory database version ${actualVersion / 10} is not supported by version ${MEMORY_DATABASE_VERSION}`,
-    );
-  }
-}
+export { assertCurrentMemoryDatabaseVersion } from './database';

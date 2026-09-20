@@ -640,6 +640,45 @@ export type MessageAction =
   | { type: 'SET_PENDING_PROJECT_CONTEXT'; payload: { projectId: string | null } }
   | { type: 'GET_CURRENT_DEEPSEEK_CONVERSATION' }
   | { type: 'GET_PROJECT_CONTEXT_FOR_CONVERSATION'; payload: { conversation: ProjectConversationInput; bindPendingProject?: boolean } }
+  | { type: 'PROJECT_KNOWLEDGE_QUERY'; payload: { projectId: string; query?: string; conversationId?: string } }
+  | { type: 'PROJECT_KNOWLEDGE_GET'; payload: { projectId: string; recordId: string } }
+  | { type: 'PROJECT_KNOWLEDGE_MUTATE'; payload: {
+    projectId: string;
+    action: 'propose' | 'resolve' | 'sharing' | 'import';
+    record?: Partial<import('./messaging/project-knowledge-runtime-contracts').ProjectKnowledgeRecordSummary> & {
+      content: string;
+      kind: import('./messaging/project-knowledge-runtime-contracts').ProjectKnowledgeRecordKind;
+      conversationId?: string;
+      messageId?: string;
+      branchId?: string;
+      role?: 'user' | 'assistant' | 'system' | 'tool';
+    };
+    recordId?: string;
+    status?: import('./messaging/project-knowledge-runtime-contracts').ProjectKnowledgeStatus;
+    excludedConversationIds?: string[];
+    sharing?: 'project' | 'excluded';
+    bundle?: import('./messaging/project-knowledge-runtime-contracts').ProjectKnowledgeExportBundle;
+  } }
+  | { type: 'PROJECT_KNOWLEDGE_EXPORT'; payload: { projectId: string } }
+  | { type: 'PROJECT_RUNS_LIST'; payload: { projectId: string; conversationId?: string } }
+  | { type: 'PROJECT_KNOWLEDGE_CAPTURE'; payload: {
+    projectId: string;
+    conversationId: string;
+    branchId?: string | null;
+    messageId: string;
+    role: 'user' | 'assistant';
+    text: string;
+    sourceRefs?: string[];
+    contentHash: string;
+  } }
+  | { type: 'GET_PROJECT_EXECUTION_POLICY'; payload: { projectId: string } }
+  | { type: 'SAVE_PROJECT_EXECUTION_POLICY'; payload: {
+    projectId: string;
+    approvedRoots: string[];
+    mcp: { serverIds: string[]; toolNamesByServer: Record<string, string[]> };
+    shell: { enabled: boolean; toolNames: string[] };
+  } }
+  | { type: 'DELETE_PROJECT_EXECUTION_POLICY'; payload: { projectId: string } }
   | { type: 'GET_ARTIFACT'; payload: { id: string } }
   | { type: 'GET_CONFIG' }
   | { type: 'GET_DEEPSEEK_THEME' }

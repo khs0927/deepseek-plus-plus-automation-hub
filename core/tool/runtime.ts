@@ -26,6 +26,8 @@ import {
   ToolAuthorizationError,
 } from './authorization';
 import { enforceLocalSkillCwd } from './local-skill-cwd';
+import { createToolExecutionScheduler, type ToolExecutionScheduler } from './scheduler';
+import { classifyToolExecution } from './scheduler-policy';
 
 export interface RuntimeToolCallOptions {
   timeoutMs?: number;
@@ -62,6 +64,8 @@ export interface RuntimeCapabilityInvocationResolver {
 
 export interface RuntimeToolRuntimeOptions {
   capabilityInvocationResolver?: RuntimeCapabilityInvocationResolver;
+  executionScheduler?: ToolExecutionScheduler;
+  projectExecutionPolicy?: (input: { call: ToolCall; descriptor: ToolDescriptor; capabilityScope: ToolCapabilityScope; signal?: AbortSignal }) => Promise<ToolResult | null>;
 }
 
 export interface RuntimeToolRuntime {
@@ -103,6 +107,8 @@ export function createRuntimeToolRuntime(
         locale,
         callOptions,
         runtimeOptions.capabilityInvocationResolver,
+        runtimeOptions.executionScheduler ?? createToolExecutionScheduler(),
+        runtimeOptions.projectExecutionPolicy,
       ),
   };
 }
@@ -125,6 +131,8 @@ async function executeRuntimeToolCall(
   locale: SupportedLocale = DEFAULT_LOCALE,
   options: RuntimeToolCallOptions = {},
   capabilityInvocationResolver?: RuntimeCapabilityInvocationResolver,
+  executionScheduler: ToolExecutionScheduler = createToolExecutionScheduler(),
+  projectExecutionPolicy?: RuntimeToolRuntimeOptions['projectExecutionPolicy'],
 ): Promise<ToolResult> {
   assertRuntimeExecutionActive(options);
   const identifiedCall = !call.id && options.idempotencyKey
@@ -192,7 +200,15 @@ async function executeRuntimeToolCall(
       authorized.externalPayloadNamespace,
     );
     assertRuntimeExecutionActive(options);
-    if (resolvedCall.parseError) {
+    const policyResult = await projectExecutionPolicy?.({
+      call: resolvedCall,
+      descriptor: executionDescriptor,
+      capabilityScope: createRuntimeCapabilityScope(context, resolvedCall),
+      signal: options.signal,
+    });
+    if (policyResult) {
+      result = policyResult;
+    } else if (resolvedCall.parseError) {
       result = createParseErrorToolResult(resolvedCall, locale);
     } else if (capabilityInvocationResolver?.supports(executionDescriptor)) {
       const resolution = await capabilityInvocationResolver.resolveInvocation({
@@ -206,33 +222,47 @@ async function executeRuntimeToolCall(
       } else {
         resolvedCall = resolution.call;
         executionDescriptor = resolution.descriptor;
-        result = await providerRegistry.execute(
-          resolvedCall,
-          executionDescriptor,
-          {
-            locale,
+        const resolvedPolicyResult = await projectExecutionPolicy?.({
+          call: resolvedCall,
+          descriptor: executionDescriptor,
+          capabilityScope: createRuntimeCapabilityScope(context, resolvedCall),
+          signal: options.signal,
+        });
+        if (resolvedPolicyResult) {
+          result = resolvedPolicyResult;
+        } else {
+          result = await executionScheduler.schedule({
+            ownerKey: deriveSchedulerOwner(context),
+            serverKey: `${executionDescriptor.provider.kind}:${executionDescriptor.provider.id}`,
+            ...classifyToolExecution(executionDescriptor, resolvedCall),
             signal: options.signal,
-            timeoutMs: options.timeoutMs,
-            maxResultBytes: options.maxResultBytes,
-            availableDescriptors: currentDescriptors,
-            capabilityScope: createRuntimeCapabilityScope(context, authorized.call),
-          },
-        );
-        providerCompleted = true;
+            run: () => providerRegistry.execute(resolvedCall, executionDescriptor, {
+              locale,
+              signal: options.signal,
+              timeoutMs: options.timeoutMs,
+              maxResultBytes: options.maxResultBytes,
+              availableDescriptors: currentDescriptors,
+              capabilityScope: createRuntimeCapabilityScope(context, authorized.call),
+            }),
+          });
+          providerCompleted = true;
+        }
       }
     } else {
-      result = await providerRegistry.execute(
-        resolvedCall,
-        executionDescriptor,
-        {
+      result = await executionScheduler.schedule({
+        ownerKey: deriveSchedulerOwner(context),
+        serverKey: `${executionDescriptor.provider.kind}:${executionDescriptor.provider.id}`,
+        ...classifyToolExecution(executionDescriptor, resolvedCall),
+        signal: options.signal,
+        run: () => providerRegistry.execute(resolvedCall, executionDescriptor, {
           locale,
           signal: options.signal,
           timeoutMs: options.timeoutMs,
           maxResultBytes: options.maxResultBytes,
           availableDescriptors: currentDescriptors,
           capabilityScope: createRuntimeCapabilityScope(context, authorized.call),
-        },
-      );
+        }),
+      });
       providerCompleted = true;
     }
     assertRuntimeExecutionActive(options);
@@ -261,6 +291,20 @@ async function executeRuntimeToolCall(
     details: summarizeToolResult(result),
   });
   return result;
+}
+
+function deriveSchedulerOwner(context: RuntimeToolAuthorizationContext): string {
+  if (context.kind === 'grant') {
+    return `grant:${context.grantId}`;
+  }
+  return `trusted:${context.capabilityScopeId ?? context.requestId}`;
+}
+
+function deriveSchedulerLane(descriptor: ToolDescriptor): 'default' | 'known-safe' | 'heavy' {
+  const annotation = descriptor.annotations?.schedulerLane ?? descriptor.annotations?.['scheduler-lane'];
+  if (annotation === 'known-safe' || annotation === 'heavy' || annotation === 'default') return annotation;
+  if (descriptor.execution.risk === 'high') return 'heavy';
+  return 'default';
 }
 
 function summarizeToolResult(result: ToolResult): string {

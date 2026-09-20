@@ -352,7 +352,7 @@ const TOOL_DEFINITIONS = [
   {
     name: 'task_kill',
     title: 'Terminate Background Task',
-    description: 'Terminate a background task and its entire process tree.',
+    description: 'Best-effort forceful termination of a background task and its process tree. POSIX uses a process group; Windows uses bounded taskkill /T /F because Node does not expose a Job Object.',
     inputSchema: {
       type: 'object',
       properties: {

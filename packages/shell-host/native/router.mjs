@@ -13,7 +13,7 @@ export function createNativeRouter({ toolDefinitions, toolHandlerGroups, logger,
       instructions: 'General-purpose shell execution host. Use shell_exec for local commands and python_exec only for short computation or validation snippets.',
     })],
     ['tools/list', id => jsonRpcResult(id, { tools: toolDefinitions })],
-    ['tools/call', async (id, params) => {
+    ['tools/call', async (id, params, context) => {
       const name = params?.name;
       const args = params?.arguments ?? {};
       if (logger.hasFile) {
@@ -23,12 +23,12 @@ export function createNativeRouter({ toolDefinitions, toolHandlerGroups, logger,
       }
       const handler = toolHandlers.get(name);
       if (!handler) return jsonRpcError(id, -32602, `Unknown tool: ${name}`);
-      return jsonRpcResult(id, await handler(args));
+      return jsonRpcResult(id, await handler(args, context));
     }],
   ]);
 
   return {
-    async handleEnvelope(envelope) {
+    async handleEnvelope(envelope, context = {}) {
       if (!envelope || envelope.protocol !== 'deepseek-pp-mcp-native' || envelope.version !== 1) {
         return jsonRpcError(null, -32600, 'Invalid envelope: expected deepseek-pp-mcp-native v1');
       }
@@ -41,7 +41,7 @@ export function createNativeRouter({ toolDefinitions, toolHandlerGroups, logger,
       const id = message.id ?? null;
       const handler = methodHandlers.get(message.method);
       if (!handler) return jsonRpcError(id, -32601, `Unsupported method: ${message.method}`);
-      return handler(id, message.params);
+      return handler(id, message.params, context);
     },
   };
 }

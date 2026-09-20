@@ -1,20 +1,20 @@
 # Runtime Command Name Inventory
 
-Compatibility-run baseline: v1.10.0, commit `165ec46`, with 119 live-router names and 89 `MessageAction` names. Current authority includes the MCP Capability Plane settings contract. This annex is the name-level authority for `RT-001`; it freezes the 129 live names and 98 declared names while documenting, rather than accepting, the router/union split.
+Compatibility-run baseline: v1.10.0, commit `165ec46`, with 119 live-router names and 89 `MessageAction` names. Current authority includes the MCP Capability Plane settings contract, project knowledge commands, and project execution policy commands. This annex is the name-level authority for `RT-001`; it freezes the 140 live names and 109 declared names while documenting, rather than accepting, the router/union split.
 
 ## Invariants
 
-- The production registry owns 129 live commands exactly once through typed handlers; no transitional case or legacy router remains.
-- `core/types.ts::MessageAction` declares 98 unique command names.
-- Ninety-six names are shared, 33 are live-router-only, and two are declared-only.
+- The production registry owns 140 live commands exactly once through typed handlers; no transitional case or legacy router remains.
+- `core/types.ts::MessageAction` declares 109 unique command names.
+- One hundred seven names are shared, 33 are live-router-only, and two are declared-only.
 - A live name and its legal behavior remain compatible until an explicit migration changes the contract.
 - `TOOL_CALL_EXECUTED` and `MEMORIES_UPDATED` are client-only notifications, not live background commands; direct background dispatch rejects them with `runtime_command_unknown`.
-- R3.1 / #351 establishes the typed handler seam and explicit unknown-command failure. R4.1–R4.4 migrate their exact `61 / 32 / 16 / 18` command slices without changing the frozen live-name surface.
+- R3.1 / #351 establishes the typed handler seam and explicit unknown-command failure. R4.1–R4.4 migrate their exact `72 / 32 / 16 / 18` command slices; project knowledge and project execution policy commands are included in R4.1.
 - The ownership ledger below is authoritative for cutover scope. A live command appears exactly once; a task must not absorb a command assigned to another Issue.
 
-The production ownership model and the cutover ledger serve different purposes. `core/messaging/runtime-command-contracts.ts` is the single 131-name metadata and current-owner authority (`129 typed / 0 legacy / 2 client-only`), consumed by the dispatch registry; the sections below retain historical migration ownership (`2 / 61 / 32 / 16 / 18`). Contract tests fail on a duplicate, missing, or cross-owner name.
+The production ownership model and the cutover ledger serve different purposes. `core/messaging/runtime-command-contracts.ts` is the single 140-name metadata and current-owner authority (`140 typed / 0 legacy / 2 client-only`), consumed by the dispatch registry; the sections below retain historical migration ownership (`2 / 72 / 32 / 16 / 18`). Contract tests fail on a duplicate, missing, or cross-owner name.
 
-## Replanned Cutover Ownership — 129 Live Commands
+## Replanned Cutover Ownership — 140 Live Commands
 
 ### R3.1 / #351 — Typed seam bootstrap (2)
 
@@ -23,7 +23,7 @@ GET_CONFIG
 WHATS_NEW_DISMISSED
 ```
 
-### R4.1 / #360 — Persistence, library, and local preferences (63)
+### R4.1 / #360 — Persistence, library, and local preferences (72)
 
 ```text
 GET_MEMORIES
@@ -76,6 +76,15 @@ REMOVE_CONVERSATION_FROM_PROJECT
 SET_PENDING_PROJECT_CONTEXT
 GET_CURRENT_DEEPSEEK_CONVERSATION
 GET_PROJECT_CONTEXT_FOR_CONVERSATION
+PROJECT_KNOWLEDGE_QUERY
+PROJECT_KNOWLEDGE_GET
+PROJECT_KNOWLEDGE_MUTATE
+PROJECT_KNOWLEDGE_EXPORT
+PROJECT_KNOWLEDGE_CAPTURE
+PROJECT_RUNS_LIST
+GET_PROJECT_EXECUTION_POLICY
+SAVE_PROJECT_EXECUTION_POLICY
+DELETE_PROJECT_EXECUTION_POLICY
 GET_ARTIFACT
 GET_DEEPSEEK_THEME
 SET_DEEPSEEK_THEME
@@ -172,9 +181,9 @@ SCENARIOS_UPDATED
 EXPORT_DIAGNOSTIC_LOGS
 ```
 
-`TOOL_CALL_EXECUTED` and `MEMORIES_UPDATED` remain declared-only compatibility records. They are not counted in the 129 live command owners and R3.1 must classify them explicitly rather than invent handlers.
+`TOOL_CALL_EXECUTED` and `MEMORIES_UPDATED` remain declared-only compatibility records. They are not counted in the 140 live command owners and R3.1 must classify them explicitly rather than invent handlers.
 
-## Live Background Router — 131
+## Live Background Router — 140
 
 ```text
 GET_MEMORIES
@@ -259,6 +268,15 @@ REMOVE_CONVERSATION_FROM_PROJECT
 SET_PENDING_PROJECT_CONTEXT
 GET_CURRENT_DEEPSEEK_CONVERSATION
 GET_PROJECT_CONTEXT_FOR_CONVERSATION
+PROJECT_KNOWLEDGE_QUERY
+PROJECT_KNOWLEDGE_GET
+PROJECT_KNOWLEDGE_MUTATE
+PROJECT_KNOWLEDGE_EXPORT
+PROJECT_KNOWLEDGE_CAPTURE
+PROJECT_RUNS_LIST
+GET_PROJECT_EXECUTION_POLICY
+SAVE_PROJECT_EXECUTION_POLICY
+DELETE_PROJECT_EXECUTION_POLICY
 GET_ARTIFACT
 GET_CONFIG
 WHATS_NEW_DISMISSED
@@ -310,7 +328,7 @@ RUN_AUTOMATION_NOW
 SCENARIOS_UPDATED
 ```
 
-## Declared `MessageAction` Union — 100
+## Declared `MessageAction` Union — 109
 
 ```text
 GET_MEMORIES
@@ -386,6 +404,15 @@ REMOVE_CONVERSATION_FROM_PROJECT
 SET_PENDING_PROJECT_CONTEXT
 GET_CURRENT_DEEPSEEK_CONVERSATION
 GET_PROJECT_CONTEXT_FOR_CONVERSATION
+PROJECT_KNOWLEDGE_QUERY
+PROJECT_KNOWLEDGE_GET
+PROJECT_KNOWLEDGE_MUTATE
+PROJECT_KNOWLEDGE_EXPORT
+PROJECT_KNOWLEDGE_CAPTURE
+PROJECT_RUNS_LIST
+GET_PROJECT_EXECUTION_POLICY
+SAVE_PROJECT_EXECUTION_POLICY
+DELETE_PROJECT_EXECUTION_POLICY
 GET_ARTIFACT
 GET_CONFIG
 GET_DEEPSEEK_THEME
@@ -462,4 +489,4 @@ MEMORIES_UPDATED
 
 ## Validation Method
 
-`tests/runtime-command-contract.test.ts` derives the typed registry and literal `MessageAction` names, then compares them with this inventory and the production 131-name contract map. It freezes `129/98/96/33/2`, current `85/44` payload access, `129/0/2` ownership, and `85 decoded / 0 direct-cast / 0 delegated`; it also proves the historical `2/61/32/16/18` cutover partition. `SCENARIOS_UPDATED` is the only released payload-less command extended with an optional request, preserving its old call and response. Serializable specimens cover every request/response/error family without creating another command-name authority.
+`tests/runtime-command-contract.test.ts` derives the typed registry and literal `MessageAction` names, then compares them with this inventory and the production 140-name contract map. It freezes `140/109/107/33/2`, current payload access, `140/0/2` ownership, and the historical `2/72/32/16/18` cutover partition. `SCENARIOS_UPDATED` is the only released payload-less command extended with an optional request, preserving its old call and response. Serializable specimens cover every request/response/error family without creating another command-name authority.

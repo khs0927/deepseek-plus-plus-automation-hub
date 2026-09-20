@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildShellAllowlistUpgrade,
   buildShellLimitsUpgrade,
   createShellMcpPresetInput,
   DEFAULT_SHELL_MCP_ALLOWLIST_TOOL_NAMES,
+  isShellToolAllowedByAllowlist,
   isShellMcpServer,
 } from '../core/shell/policy';
 import { DEFAULT_MCP_REQUEST_TIMEOUT_MS } from '../core/mcp/config';
+import type { McpToolAllowlist } from '../core/mcp/types';
 import { SHELL_TOOL_NAMES } from '../core/shell/contracts';
 
 describe('createShellMcpPresetInput', () => {
@@ -45,53 +46,26 @@ describe('createShellMcpPresetInput', () => {
     expect(SHELL_TOOL_NAMES).toContain('shell_session_end');
   });
 
-  it('upgrades legacy read-only Shell allowlists with local file tools too', () => {
-    expect(buildShellAllowlistUpgrade({
+  it('evaluates explicit Shell approvals without widening the allowlist', () => {
+    const allowlist: McpToolAllowlist = {
       mode: 'allow',
       toolNames: ['shell_status', 'python_status'],
-    })).toEqual({
-      mode: 'allow',
-      toolNames: [
-        'shell_status',
-        'python_status',
-        'local_skill_preview',
-        'local_folder_pick',
-        'local_file_stat',
-        'local_file_read',
-        'local_file_write',
-        'local_dir_list',
-        'local_file_search',
-        'task_spawn',
-        'task_status',
-        'task_kill',
-        'task_list',
-      ],
-    });
+    };
+    expect(isShellToolAllowedByAllowlist(allowlist, 'shell_status')).toBe(true);
+    expect(isShellToolAllowedByAllowlist(allowlist, 'shell_exec')).toBe(false);
+    expect(allowlist.toolNames).toEqual(['shell_status', 'python_status']);
   });
 
-  it('preserves existing exec tools while upgrading Shell allowlists', () => {
-    expect(buildShellAllowlistUpgrade({
-      mode: 'allow',
-      toolNames: ['shell_status', 'python_status', 'shell_exec'],
-    })).toEqual({
-      mode: 'allow',
-      toolNames: [
-        'shell_status',
-        'python_status',
-        'shell_exec',
-        'local_skill_preview',
-        'local_folder_pick',
-        'local_file_stat',
-        'local_file_read',
-        'local_file_write',
-        'local_dir_list',
-        'local_file_search',
-        'task_spawn',
-        'task_status',
-        'task_kill',
-        'task_list',
-      ],
-    });
+  it('supports deny lists without treating omitted tools as approved', () => {
+    const allowlist: McpToolAllowlist = { mode: 'deny', toolNames: ['shell_exec'] };
+    expect(isShellToolAllowedByAllowlist(allowlist, 'shell_status')).toBe(true);
+    expect(isShellToolAllowedByAllowlist(allowlist, 'shell_exec')).toBe(false);
+  });
+
+  it('treats an explicit all policy as approved without mutating it', () => {
+    const allowlist: McpToolAllowlist = { mode: 'all', toolNames: [] };
+    expect(isShellToolAllowedByAllowlist(allowlist, 'shell_exec')).toBe(true);
+    expect(allowlist).toEqual({ mode: 'all', toolNames: [] });
   });
 
   it('detects the built-in Shell Local server by name or native host', () => {

@@ -58,6 +58,11 @@ import {
   type ToolProviderExecutionContext,
 } from '../../core/tool/provider-registry';
 import type { ToolCall, ToolDescriptor, ToolResult } from '../../core/tool/types';
+import {
+  PROJECT_CONTEXT_TOOL_PROVIDER,
+  PROJECT_CONTEXT_TOOL_DESCRIPTORS,
+  executeProjectContextToolCall,
+} from '../../core/project-context/tools';
 
 const memoryRuntime: MemoryToolRuntime = {
   async saveMemory(input: NewMemory) {
@@ -110,6 +115,11 @@ export function createProductionToolProviderRegistry(): ToolProviderRegistry {
       MEMORY_IMPORT_TOOL_PROVIDER.id,
       ({ locale }) => createMemoryImportToolDescriptors(locale),
       (call, _descriptor, { locale }) => executeMemoryImportToolCall(call, locale),
+    ),
+    createLocalProvider(
+      PROJECT_CONTEXT_TOOL_PROVIDER.id,
+      () => [...PROJECT_CONTEXT_TOOL_DESCRIPTORS],
+      (call, _descriptor, context) => executeProjectContextToolCall(call, context),
     ),
     createLocalProvider(
       BROWSER_CONTROL_PROVIDER.id,

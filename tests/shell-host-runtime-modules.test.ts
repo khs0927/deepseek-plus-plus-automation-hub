@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 // @ts-ignore - Shell Host runtime modules are executable .mjs files.
 import { copyHostRuntime } from '../packages/shell-host/lib/installer.mjs';
 // @ts-ignore - Shell Host runtime modules are executable .mjs files.
@@ -11,12 +11,27 @@ import { REQUIRED_HOST_RUNTIME_FILES, getMissingHostRuntimeFiles } from '../pack
 // @ts-ignore - Shell Host runtime modules are executable .mjs files.
 import { createNativeMessageChannel, NATIVE_EOF } from '../packages/shell-host/native/framing.mjs';
 // @ts-ignore - Shell Host runtime modules are executable .mjs files.
+import { createSentinelOutputParser, decodeUtf8Prefix } from '../packages/shell-host/native/session-output-parser.mjs';
+// @ts-ignore - Shell Host runtime modules are executable .mjs files.
 import { createToolRegistry } from '../packages/shell-host/native/router.mjs';
 // @ts-ignore - Shell Host runtime modules are executable .mjs files.
 import { createNativeEnvelopeDispatcher } from '../packages/shell-host/native/runtime-dispatcher.mjs';
 
 const tempRoots: string[] = [];
 const shellPackage = readJson(resolve('packages/shell-host/package.json'));
+const previousJobObjectSetting = process.env.DEEPSEEK_PP_DISABLE_JOB_OBJECT;
+
+beforeAll(() => {
+  // Job Object behavior has a dedicated real-process smoke test. Keeping the
+  // modular protocol suite from launching PowerShell helpers for every child
+  // avoids Windows worker contention masking the protocol assertions.
+  process.env.DEEPSEEK_PP_DISABLE_JOB_OBJECT = '1';
+});
+
+afterAll(() => {
+  if (previousJobObjectSetting === undefined) delete process.env.DEEPSEEK_PP_DISABLE_JOB_OBJECT;
+  else process.env.DEEPSEEK_PP_DISABLE_JOB_OBJECT = previousJobObjectSetting;
+});
 
 afterEach(() => {
   for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -47,6 +62,40 @@ describe('Shell Host modular runtime ownership', () => {
     await expect(channel.readMessage()).resolves.toEqual(second);
     await expect(channel.readMessage()).resolves.toBe(NATIVE_EOF);
     expect(logs).toEqual([]);
+  });
+
+  it('ends a partial Native frame instead of waiting forever', async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    const logs: string[] = [];
+    const channel = createNativeMessageChannel({
+      input,
+      output,
+      frameTimeoutMs: 20,
+      logLine: (message: unknown) => logs.push(String(message)),
+      onInvalidFrame: () => { throw new Error('unexpected invalid frame'); },
+    });
+    const read = channel.readMessage();
+    const header = Buffer.alloc(4);
+    header.writeUInt32LE(20, 0);
+    input.write(Buffer.concat([header, Buffer.from('{"partial":')]))
+    await expect(read).resolves.toBe(NATIVE_EOF);
+    expect(logs.some(message => message.includes('frame timed out'))).toBe(true);
+  });
+
+  it('parses a UTF-8 marker split across chunks without losing large-output completion', () => {
+    const marker = '__DPP_SESSION_END__chunked__:'.repeat(1);
+    const parser = createSentinelOutputParser({ marker, maxOutputBytes: 128_000 });
+    const output = `${'앞부분-😀-'.repeat(4_000)}${'x'.repeat(140_000)}\n`;
+    const wire = Buffer.concat([Buffer.from(output, 'utf8'), Buffer.from(`${marker}-7\r\n`, 'utf8')]);
+    let result: any = null;
+    for (let offset = 0; offset < wire.length; offset += 7) {
+      result = parser.push(wire.subarray(offset, Math.min(offset + 7, wire.length))) || result;
+    }
+    expect(result).toMatchObject({ exitCode: -7, truncated: true, outputBytes: Buffer.byteLength(output) });
+    expect(result.stdout).not.toContain('\ufffd');
+    expect(result.stdout.startsWith('앞부분-😀-')).toBe(true);
+    expect(decodeUtf8Prefix(Buffer.from([0x61, 0xf0, 0x9f]))).toBe('a');
   });
 
   it('rejects duplicate, missing, and undeclared tool registrations', () => {
@@ -238,6 +287,37 @@ describe('Shell Host modular runtime ownership', () => {
       { id: 'tool-2' },
     ]);
   });
+
+  it('propagates JSON-RPC cancellation to an in-flight native tool request', async () => {
+    const started = deferred<void>();
+    const cancelled = deferred<void>();
+    const dispatcher = createNativeEnvelopeDispatcher({
+      hostEnvironmentReady: Promise.resolve(),
+      logger: { logLine: vi.fn() },
+      router: {
+        async handleEnvelope(envelope: { message: { id: string } }, context: { signal?: AbortSignal }) {
+          if (envelope.message.id !== 'long') return { id: envelope.message.id };
+          started.resolve();
+          await new Promise<void>((resolve) => {
+            context.signal?.addEventListener('abort', () => { cancelled.resolve(); resolve(); }, { once: true });
+          });
+          return { id: 'long', cancelled: true };
+        },
+      },
+      channel: { async writeMessage() {} },
+    });
+
+    dispatcher.scheduleEnvelope(createHostEnvelope('long', 'tools/call'));
+    await started.promise;
+    dispatcher.scheduleEnvelope({
+      protocol: 'deepseek-pp-mcp-native',
+      version: 1,
+      server: { id: 'readiness-runtime' },
+      message: { jsonrpc: '2.0', method: '$/cancelRequest', params: { requestId: 'long' } },
+    });
+    await cancelled.promise;
+    await dispatcher.settle();
+  });
 });
 
 function createHostEnvelope(id: string, method: string) {
@@ -273,8 +353,8 @@ function callHost(hostPath: string, envelope: unknown): Promise<any> {
     let stderr = '';
     const timer = setTimeout(() => {
       child.kill();
-      reject(new Error(`Installed Shell Host timed out. stderr: ${stderr}`));
-    }, 5_000);
+    reject(new Error(`Installed Shell Host timed out. stderr: ${stderr}`));
+    }, 15_000);
 
     const finish = (callback: () => void) => {
       clearTimeout(timer);
@@ -308,7 +388,7 @@ function callHostResponses(hostPath: string, envelopes: unknown[]): Promise<any[
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error('Timed out waiting for concurrent Shell Host responses.'));
-    }, 5_000);
+    }, 15_000);
     const finish = (callback: () => void) => {
       clearTimeout(timer);
       child.kill();

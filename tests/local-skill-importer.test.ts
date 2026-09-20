@@ -85,7 +85,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 describe('local Skill importer', () => {
@@ -103,36 +103,20 @@ describe('local Skill importer', () => {
     }));
   });
 
-  it('adds local file tools to older Shell allowlists before picking folders', async () => {
+  it('does not upgrade older Shell allowlists before picking folders', async () => {
     vi.mocked(getAllMcpServers).mockResolvedValueOnce([createShellServer(['shell_status', 'python_status'])]);
     vi.mocked(executeMcpToolCall).mockResolvedValueOnce(createFolderPickToolResult());
 
-    await expect(pickLocalSkillFolder()).resolves.toBe('/Users/me/.codex/skills/demo');
-    expect(updateMcpServer).toHaveBeenCalledWith('shell-local', {
-      allowlist: {
-        mode: 'allow',
-        toolNames: [
-          'shell_status',
-          'python_status',
-          'local_skill_preview',
-          'local_folder_pick',
-          'local_file_stat',
-          'local_file_read',
-          'local_file_write',
-          'local_dir_list',
-          'local_file_search',
-          'task_spawn',
-          'task_status',
-          'task_kill',
-          'task_list',
-        ],
-      },
-    });
+    await expect(pickLocalSkillFolder()).rejects.toThrow(
+      'Shell MCP does not approve the required local Skill tools: local_skill_preview, local_folder_pick',
+    );
+    expect(updateMcpServer).not.toHaveBeenCalled();
+    expect(executeMcpToolCall).not.toHaveBeenCalled();
   });
 
   it('refreshes Shell discovery once when the folder picker cache is stale', async () => {
     vi.mocked(executeMcpToolCall)
-      .mockResolvedValueOnce({
+      .mockImplementationOnce(async () => ({
         ok: false,
         summary: 'MCP tool unavailable',
         detail: 'MCP tool is not available on server Shell Local.',
@@ -142,8 +126,8 @@ describe('local Skill importer', () => {
           message: 'MCP tool is not available on server Shell Local.',
           retryable: true,
         },
-      })
-      .mockResolvedValueOnce(createFolderPickToolResult());
+      }))
+      .mockImplementationOnce(async () => createFolderPickToolResult());
 
     await expect(pickLocalSkillFolder()).resolves.toBe('/Users/me/.codex/skills/demo');
     expect(refreshMcpServerDiscovery).toHaveBeenCalledWith('shell-local');
@@ -151,7 +135,7 @@ describe('local Skill importer', () => {
   });
 
   it('explains legacy Windows folder picker failures as stale Shell Native Host installs', async () => {
-    vi.mocked(executeMcpToolCall).mockResolvedValueOnce({
+    vi.mocked(executeMcpToolCall).mockImplementationOnce(async () => ({
       ok: false,
       summary: 'MCP tool failed',
       detail: 'Command failed: powershell.exe -NoProfile -STA -Command Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {}; Choose a local Skill folder Choose : CommandNotFoundException',
@@ -161,7 +145,7 @@ describe('local Skill importer', () => {
         message: 'Command failed: powershell.exe -NoProfile -STA -Command Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; Choose a local Skill folder Choose : CommandNotFoundException',
         retryable: false,
       },
-    });
+    }));
 
     const pick = pickLocalSkillFolder();
     await expect(pick).rejects.toThrow('copy the generated install command');

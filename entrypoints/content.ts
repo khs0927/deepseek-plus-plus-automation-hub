@@ -16,6 +16,7 @@ import type {
   ToolDescriptor,
   ToolExecutionRecord,
 } from "../core/types";
+import type { ProjectKnowledgeQueryResult } from "../core/messaging/project-knowledge-runtime-contracts";
 import { getDeepSeekApiKey } from "../core/chat/api-key";
 import { normalizePetConfig } from "../core/pet/config";
 import { pickPetLine, type PetState } from "../core/pet/lines";
@@ -462,6 +463,7 @@ const pendingToolExecutionTasksByRequest = new Map<
 >();
 const pendingStartedToolCallsByRequest =
   new PendingRequestRegistry<PendingStartedToolCall>();
+const projectIdByRequest = new Map<string, string>();
 let responseGeneration = 0;
 let tokenSpeedEl: HTMLElement | null = null;
 let tokenSpeedBootstrapTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1330,6 +1332,8 @@ async function dispatchMainWorldMessage(
         await waitForPendingToolExecutions(complete.requestId);
         await finalizeInterruptedToolStarts(complete.requestId);
         if (generation !== responseGeneration) break;
+        await captureCompletedProjectKnowledgeMessage(complete, projectIdByRequest);
+        projectIdByRequest.delete(complete.requestId);
         const session = getActiveToolBlockSessionForComplete(complete);
         const completedExecutions = session
           ? [...session.executions]
@@ -1651,6 +1655,20 @@ async function handleAugmentRequestBody(data: {
     const project = await resolveProjectContextForRequestBody(
       bodyWithMultimodalMedia,
     );
+    if (project?.projectId) {
+      projectIdByRequest.set(requestId, project.projectId);
+      void captureProjectKnowledgeMessage({
+        projectId: project.projectId,
+        conversationId: readRequestChatSessionId(bodyWithMultimodalMedia),
+        messageId: `${requestId}:user`,
+        branchId: bodyWithMultimodalMedia.parent_message_id === null
+          ? requestId
+          : String(bodyWithMultimodalMedia.parent_message_id),
+        role: "user",
+        text: bodyWithMultimodalMedia.prompt,
+        sourceRefs: [requestId],
+      });
+    }
 
     const result = augmentDecodedRequestBody(bodyWithMultimodalMedia, {
       memories: currentMemories,
@@ -1938,7 +1956,117 @@ async function resolveProjectContextForRequestBody(
         },
       },
     });
-  return project ?? null;
+  if (!project) return null;
+  try {
+    const knowledge = await sendRuntimeMessageStrict<ProjectKnowledgeQueryResult>({
+      type: "PROJECT_KNOWLEDGE_QUERY",
+      payload: {
+        projectId: project.projectId,
+        conversationId: sessionId,
+        query: body.prompt.slice(0, 16_000),
+      },
+    });
+    const evidence = knowledge.records
+      .filter((record) => record.status !== "retracted" && record.status !== "superseded")
+      .map((record) => `[${record.status}] ${record.content} (source: ${record.sourceRefs.join(", ")})`)
+      .join("\n");
+    if (!evidence) return project;
+    return {
+      ...project,
+      // Project conversation records are reference material. They are never
+      // promoted to instructions or capabilities merely because they came
+      // from another conversation.
+      context: [
+        project.context ?? "",
+        "[Project conversation reference — verify before relying on it]",
+        evidence,
+      ].filter(Boolean).join("\n\n"),
+    };
+  } catch (error) {
+    console.warn("[DeepSeek++] project knowledge prompt augmentation failed", error);
+    return project;
+  }
+}
+
+async function captureCompletedProjectKnowledgeMessage(
+  complete: ResponseCompletePayload,
+  projectIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  const conversationId = complete.chatSessionId ?? getCurrentChatSessionId();
+  if (!conversationId || !complete.text.trim()) return;
+  let projectId = projectIds.get(complete.requestId);
+  if (!projectId) {
+    try {
+      const project = await sendRuntimeMessageStrict<ResolvedProjectAugmentationContext | null>({
+        type: "GET_PROJECT_CONTEXT_FOR_CONVERSATION",
+        payload: {
+          bindPendingProject: false,
+          conversation: {
+            conversationId,
+            title: getCurrentConversationTitle(),
+            url: buildDeepSeekSessionUrl(conversationId),
+          },
+        },
+      });
+      projectId = project?.projectId;
+    } catch (error) {
+      console.warn("[DeepSeek++] project knowledge context lookup failed", error);
+      return;
+    }
+  }
+  if (!projectId) return;
+  await captureProjectKnowledgeMessage({
+    projectId,
+    conversationId,
+    messageId: complete.assistantMessageId == null
+      ? `${complete.requestId}:assistant`
+      : String(complete.assistantMessageId),
+    branchId: complete.parentMessageId == null
+      ? complete.requestId
+      : String(complete.parentMessageId),
+    role: "assistant",
+    text: complete.text,
+    sourceRefs: [complete.requestId],
+  });
+}
+
+async function captureProjectKnowledgeMessage(input: {
+  projectId: string;
+  conversationId: string | null;
+  messageId: string;
+  branchId: string;
+  role: "user" | "assistant";
+  text: string;
+  sourceRefs?: string[];
+}): Promise<void> {
+  if (!input.conversationId || !input.text.trim()) return;
+  try {
+    const content = sanitizeInternalPromptText(input.text).slice(0, 64_000).trim();
+    if (!content) return;
+    const contentHash = await hashProjectKnowledgeText(content);
+    await sendRuntimeMessageStrict({
+      type: "PROJECT_KNOWLEDGE_CAPTURE",
+      payload: {
+        projectId: input.projectId,
+        conversationId: input.conversationId,
+        branchId: input.branchId,
+        messageId: input.messageId,
+        role: input.role,
+        text: content,
+        sourceRefs: input.sourceRefs ?? [],
+        contentHash,
+      },
+    });
+  } catch (error) {
+    // Knowledge capture is deliberately best effort. A storage/migration
+    // failure must not block the DeepSeek request, but it remains observable.
+    console.warn("[DeepSeek++] project knowledge capture failed", error);
+  }
+}
+
+async function hashProjectKnowledgeText(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function readRequestChatSessionId(

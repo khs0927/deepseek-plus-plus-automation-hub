@@ -42,7 +42,7 @@ afterAll(() => {
 });
 
 describe('Memory historical IndexedDB compatibility', () => {
-  it('executes v1→v3 and v2→v3 upgrades while preserving additive fields across reopen', async () => {
+  it('executes historical upgrades through v4 while preserving additive fields across reopen', async () => {
     await seedMemoryDatabase(1, MEMORY_V1_ADDITIVE_RECORD);
     const {
       captureRawMemoryRecordsForSyncRecovery,
@@ -109,7 +109,7 @@ describe('Memory historical IndexedDB compatibility', () => {
       ...MEMORY_V3_RECORD,
       futureDatabaseField: { preserve: true },
     };
-    await createIndexedDbAtVersion(MEMORY_DATABASE_NAME, 40, (db) => {
+    await createIndexedDbAtVersion(MEMORY_DATABASE_NAME, 50, (db) => {
       createStore(db, MEMORY_TABLE_NAME, memorySeedSpec(3));
     });
     await addIndexedDbRecords(MEMORY_DATABASE_NAME, MEMORY_TABLE_NAME, [futureRecord]);
@@ -138,7 +138,7 @@ async function seedMemoryDatabase(version: 1 | 2, record: Record<string, unknown
   await addIndexedDbRecords(MEMORY_DATABASE_NAME, MEMORY_TABLE_NAME, [{ ...record }]);
 }
 
-function memorySeedSpec(version: 1 | 2 | 3): {
+function memorySeedSpec(version: 1 | 2 | 3 | 4): {
   keyPath: string;
   autoIncrement: boolean;
   indexes: readonly string[];

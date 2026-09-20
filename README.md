@@ -1100,10 +1100,23 @@ Chrome 用户可以直接从 [Chrome Web Store](https://chromewebstore.google.co
 ### 从源码构建
 
 ```bash
-git clone https://github.com/zhu1090093659/deepseek-pp.git
-cd deepseek-pp
-npm install
-npm run build
+git clone https://github.com/khs0927/deepseek-plus-plus-automation-hub.git
+cd deepseek-plus-plus-automation-hub
+npm ci
+npm run setup -- --browser all
+```
+
+`npm run setup`는 Node.js 18.17 이상을 확인하고 브라우저별 production build를 생성하며, Firefox Native Host를 자동 등록한다. Chrome/Edge는 브라우저 보안상 확장 ID를 먼저 개발자 모드에서 확인해야 하므로 `dist/chrome-mv3` 또는 `dist/edge-mv3`를 한 번 로드한 뒤 다음 명령으로 Native Host를 등록한다.
+
+```bash
+npm run setup -- --browser chrome --chrome-extension-id <extension-id>
+npm run setup -- --browser edge --edge-extension-id <extension-id>
+```
+
+로그인, API key, MCP credential은 설치 과정에서 다루지 않으며 사용자가 직접 설정한다. 설치 상태는 `npm run setup:status -- --browser all`로 확인한다. 설치 후 실브라우저 다중 대화 smoke는 다음으로 실행할 수 있다.
+
+```bash
+npm run e2e:browser -- --browser edge --chat-url https://chat.deepseek.com/ --chat-url https://chat.deepseek.com/
 ```
 
 默认 `npm run build` 生成 Chrome MV3 产物。跨浏览器构建：
@@ -1121,6 +1134,7 @@ Shell MCP host 的 smoke check：
 
 ```bash
 npm run smoke:shell
+npm run smoke:windows-job
 ```
 
 | 浏览器 | 加载入口 | 构建目录 |

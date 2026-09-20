@@ -53,13 +53,13 @@ async function main() {
   }
   await dispatcher.settle();
   sessionProvider.shutdown();
-  taskProvider.shutdown();
+  await taskProvider.shutdown();
 }
 
 main().catch(error => {
   const message = error instanceof Error ? error.message : String(error);
   logger.logLine(`Fatal: ${message}`);
   sessionProvider.shutdown();
-  taskProvider.shutdown();
+  void taskProvider.shutdown();
   process.exit(1);
 });

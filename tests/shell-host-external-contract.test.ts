@@ -273,7 +273,7 @@ function readNativeResponse(child: ReturnType<typeof spawn>): Promise<any> {
 
   return new Promise((resolve, reject) => {
     let buffer = Buffer.alloc(0);
-    const timer = setTimeout(() => reject(new Error('Timed out waiting for Shell Host response.')), 5_000);
+    const timer = setTimeout(() => reject(new Error('Timed out waiting for Shell Host response.')), 15_000);
     const finish = (callback: () => void) => {
       clearTimeout(timer);
       stdout.removeAllListeners();
