@@ -8,22 +8,54 @@ export function createNativeEnvelopeDispatcher({
 }) {
   const environmentReady = Promise.resolve(hostEnvironmentReady);
   const inFlight = new Set();
-  let toolCallTail = Promise.resolve();
+  // One FIFO per persistent shell session. Commands addressing the same
+  // shell_session_* session_id share one child stdin/stdout pair and its
+  // end-marker protocol, so they must keep input/output order. Everything
+  // else (other sessions, one-shot shell_exec, MCP calls, file tools) runs
+  // concurrently, so one chat room can never starve another.
+  // Response framing stays intact: channel.writeMessage serializes stdout
+  // bytes internally (framing.mjs writeTail).
+  const sessionTails = new Map();
 
   function scheduleEnvelope(envelope) {
     const toolCall = isToolCallEnvelope(envelope);
+    const sessionKey = toolCall ? shellSessionKeyOf(envelope) : null;
     const run = () => handleEnvelope(envelope, toolCall);
-    const task = toolCall
-      ? toolCallTail.then(run, run)
-      : run();
-    if (toolCall) {
-      toolCallTail = task.then(() => undefined, () => undefined);
+    let task;
+    if (sessionKey === null) {
+      task = run();
+    } else {
+      const tail = sessionTails.get(sessionKey) ?? Promise.resolve();
+      task = tail.then(run, run);
+      let tailPromise;
+      tailPromise = task.then(
+        () => dropSessionTail(sessionKey, tailPromise),
+        () => dropSessionTail(sessionKey, tailPromise),
+      );
+      sessionTails.set(sessionKey, tailPromise);
     }
     inFlight.add(task);
     void task.then(
       () => inFlight.delete(task),
       () => inFlight.delete(task),
     );
+  }
+
+  function dropSessionTail(sessionKey, tailPromise) {
+    // Delete only when nothing newer queued behind this command; a newer
+    // tail means a later scheduleEnvelope already replaced the entry.
+    if (sessionTails.get(sessionKey) === tailPromise) {
+      sessionTails.delete(sessionKey);
+    }
+  }
+
+  function shellSessionKeyOf(envelope) {
+    const params = envelope?.message?.params;
+    if (!params || typeof params !== 'object') return null;
+    if (params.name !== 'shell_session_exec' && params.name !== 'shell_session_end') return null;
+    const sessionId = params.arguments?.session_id;
+    if (typeof sessionId !== 'string' || sessionId.trim().length === 0) return null;
+    return `shell-session:${sessionId}`;
   }
 
   async function handleEnvelope(envelope, waitForHostEnvironment) {

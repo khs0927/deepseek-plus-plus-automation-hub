@@ -1,10 +1,13 @@
-import { spawn, exec, execSync } from 'node:child_process';
+import { spawn, exec, execFile, execSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { promisify } from 'node:util';
+import { MCP_PROTOCOL_VERSION } from './contracts.mjs';
+import { createChildEnv } from './os-adapter.mjs';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const MCP_CONFIG_PATH = join(homedir(), '.gemini/config/mcp_config.json');
 const MCP_DIR = join(homedir(), '.gemini/antigravity/mcp');
 
@@ -47,47 +50,26 @@ async function handleGithubControl(args) {
   const timeout = typeof args?.timeout_ms === 'number' ? args.timeout_ms : 60000;
 
   try {
-    let cmdToRun = '';
-    switch (action) {
-      case 'repo_list':
-        cmdToRun = 'gh repo list --limit 30 --json name,description,url,isPrivate,updatedAt';
-        break;
-      case 'repo_view':
-        if (!repo) throw new Error('repo is required for repo_view (e.g. owner/repo)');
-        cmdToRun = `gh repo view ${repo} --json name,description,url,defaultBranchRef,stargazerCount`;
-        break;
-      case 'pr_list':
-        cmdToRun = repo ? `gh pr list --repo ${repo} --limit 20 --json number,title,state,author,url` : 'gh pr list --limit 20 --json number,title,state,author,url';
-        break;
-      case 'pr_create':
-        if (!args.title || !args.body) throw new Error('title and body are required for pr_create');
-        cmdToRun = `gh pr create --title "${args.title.replace(/"/g, '\\"')}" --body "${args.body.replace(/"/g, '\\"')}" ${repo ? `--repo ${repo}` : ''}`;
-        break;
-      case 'issue_list':
-        cmdToRun = repo ? `gh issue list --repo ${repo} --limit 20 --json number,title,state,author,url` : 'gh issue list --limit 20 --json number,title,state,author,url';
-        break;
-      case 'issue_create':
-        if (!args.title || !args.body) throw new Error('title and body are required for issue_create');
-        cmdToRun = `gh issue create --title "${args.title.replace(/"/g, '\\"')}" --body "${args.body.replace(/"/g, '\\"')}" ${repo ? `--repo ${repo}` : ''}`;
-        break;
-      case 'git_status':
-        cmdToRun = 'git status -s';
-        break;
-      case 'exec_gh':
-      default:
-        if (!command) throw new Error('command is required for exec_gh');
-        cmdToRun = command.startsWith('gh ') ? command : `gh ${command}`;
-        break;
-    }
-
-    const { stdout, stderr } = await execAsync(cmdToRun, {
+    // Fixed argv arrays run via execFile (no shell quoting games); only the
+    // freeform exec_gh action keeps a shell path, and it is documented as such.
+    const spec = buildGithubCommand(action, { command, repo, title: args?.title, body: args?.body });
+    const runOptions = {
       cwd,
       timeout,
-      env: process.env,
+      env: createChildEnv(),
       encoding: 'utf8',
       windowsHide: true,
-      maxBuffer: 4 * 1024 * 1024
-    });
+      maxBuffer: 4 * 1024 * 1024,
+    };
+
+    let stdout;
+    let stderr;
+    if (spec.shell) {
+      ({ stdout, stderr } = await execAsync(spec.shell, runOptions));
+    } else {
+      ({ stdout, stderr } = await execFileAsync(spec.bin, spec.argv, runOptions));
+    }
+    const cmdLabel = spec.shell ?? [spec.bin, ...spec.argv].join(' ');
 
     let structured = null;
     try {
@@ -99,7 +81,7 @@ async function handleGithubControl(args) {
     const outputText = stdout.trim() || stderr.trim() || '(No output)';
     return {
       content: [{ type: 'text', text: outputText }],
-      structuredContent: { ok: true, action, command: cmdToRun, data: structured },
+      structuredContent: { ok: true, action, command: cmdLabel, data: structured },
       isError: false,
     };
   } catch (error) {
@@ -108,6 +90,34 @@ async function handleGithubControl(args) {
       content: [{ type: 'text', text: `GitHub command failed: ${error.message}` }],
       structuredContent: { ok: false, error: error.message }
     };
+  }
+}
+
+// Fixed actions run without a shell (execFile argv); exec_gh is the only
+// action that keeps shell execution for freeform `gh ...` strings.
+function buildGithubCommand(action, { command, repo, title, body }) {
+  switch (action) {
+    case 'repo_list':
+      return { bin: 'gh', argv: ['repo', 'list', '--limit', '30', '--json', 'name,description,url,isPrivate,updatedAt'] };
+    case 'repo_view':
+      if (!repo) throw new Error('repo is required for repo_view (e.g. owner/repo)');
+      return { bin: 'gh', argv: ['repo', 'view', repo, '--json', 'name,description,url,defaultBranchRef,stargazerCount'] };
+    case 'pr_list':
+      return { bin: 'gh', argv: repo ? ['pr', 'list', '--repo', repo, '--limit', '20', '--json', 'number,title,state,author,url'] : ['pr', 'list', '--limit', '20', '--json', 'number,title,state,author,url'] };
+    case 'pr_create':
+      if (!title || !body) throw new Error('title and body are required for pr_create');
+      return { bin: 'gh', argv: ['pr', 'create', '--title', title, '--body', body, ...(repo ? ['--repo', repo] : [])] };
+    case 'issue_list':
+      return { bin: 'gh', argv: repo ? ['issue', 'list', '--repo', repo, '--limit', '20', '--json', 'number,title,state,author,url'] : ['issue', 'list', '--limit', '20', '--json', 'number,title,state,author,url'] };
+    case 'issue_create':
+      if (!title || !body) throw new Error('title and body are required for issue_create');
+      return { bin: 'gh', argv: ['issue', 'create', '--title', title, '--body', body, ...(repo ? ['--repo', repo] : [])] };
+    case 'git_status':
+      return { bin: 'git', argv: ['status', '-s'] };
+    case 'exec_gh':
+    default:
+      if (!command) throw new Error('command is required for exec_gh');
+      return { shell: command.startsWith('gh ') ? command : `gh ${command}` };
   }
 }
 
@@ -254,7 +264,7 @@ function resolveCommand(cmd) {
 // Stdio JSON-RPC Helper
 function invokeStdioMcp(serverName, srvConfig, toolName, toolArguments, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
-    const env = { ...process.env, ...(srvConfig.env || {}) };
+    const env = createChildEnv(srvConfig.env);
     if (serverName === 'github' || !env.GITHUB_PERSONAL_ACCESS_TOKEN) {
       const ghToken = getGhToken();
       if (ghToken) env.GITHUB_PERSONAL_ACCESS_TOKEN = ghToken;
@@ -332,7 +342,7 @@ function invokeStdioMcp(serverName, srvConfig, toolName, toolArguments, timeoutM
       id: 1,
       method: 'initialize',
       params: {
-        protocolVersion: '2024-11-05',
+        protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: {},
         clientInfo: { name: 'deepseek-mcp-gateway', version: '1.0.0' }
       }
@@ -394,7 +404,7 @@ async function discoverToolsViaStdio(serverName) {
       jsonrpc: '2.0',
       id: 1,
       method: 'initialize',
-      params: { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'discover', version: '1.0' } }
+      params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 'discover', version: '1.0' } }
     }) + '\n');
   });
 }
