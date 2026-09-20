@@ -81,6 +81,12 @@ import {
   setMcpCapabilityServerExposure,
   updateMcpCapabilitySettings,
 } from '../core/mcp/capability-settings';
+import {
+  clearJevShadowApiKey,
+  getJevShadowSettingsStatus,
+  saveJevShadowApiKey,
+  updateJevShadowSettings,
+} from '../core/mcp/jev-shadow';
 import { projectMcpCapabilityDescriptors } from '../core/mcp/capability-projection';
 import {
   authorizeExternalToolPayloadChunk,
@@ -519,6 +525,10 @@ const runtimeCommandRegistry = createRuntimeCommandRegistry({
         getAllMcpServers,
         getMcpCapabilitySettings,
         updateMcpCapabilitySettings,
+        getJevShadowSettingsStatus,
+        updateJevShadowSettings,
+        saveJevShadowApiKey,
+        clearJevShadowApiKey,
         setMcpCapabilityServerExposure,
         getMcpServerById,
         createMcpServer,
