@@ -62,6 +62,20 @@ export {
 } from './runtime';
 
 export {
+  DEFAULT_MCP_BATCH_MAX_CONCURRENCY,
+  MAX_MCP_BATCH_CALLS,
+  MAX_MCP_BATCH_MAX_CONCURRENCY,
+  executeBoundedMcpBatch,
+  isParallelSafeMcpRead,
+  planBoundedMcpBatch,
+  type ExecuteRuntimeToolBatchInput,
+  type RuntimeToolBatchError,
+  type RuntimeToolBatchItemOutcome,
+  type RuntimeToolBatchPlan,
+  type RuntimeToolBatchWave,
+} from './batch-runtime';
+
+export {
   WEB_SEARCH_TOOL_DESCRIPTORS,
   WEB_SEARCH_TOOL_NAMES,
   WEB_SEARCH_TOOL_PROVIDER,
