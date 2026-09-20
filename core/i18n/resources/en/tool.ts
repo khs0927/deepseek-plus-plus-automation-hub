@@ -191,6 +191,8 @@ export const tool = {
     closeTabDescription: 'Close a tab; defaults to the current controlled tab.',
     snapshotTitle: 'Read page snapshot',
     snapshotDescription: 'Return an Accessibility Tree text snapshot with interactable element ids.',
+    fastStepTitle: 'JEV fast browser step',
+    fastStepDescription: 'Use JEV to choose exactly one safe operation and observed Accessibility Tree target for the current browser goal.',
     clickTitle: 'Click element',
     clickDescription: 'Click a page element by snapshot uid or CSS selector.',
     hoverTitle: 'Hover element',
