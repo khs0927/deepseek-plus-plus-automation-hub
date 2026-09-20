@@ -97,6 +97,7 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
     }, signal);
 
     return decodeSystemOneRanking(response, optionToCandidate, this.id, this.model);
+  }
 
   private async evaluateFanout(
     request: DecisionRequest,
@@ -164,7 +165,6 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
       this.id,
       this.model,
     );
-  }
   }
 }
 
