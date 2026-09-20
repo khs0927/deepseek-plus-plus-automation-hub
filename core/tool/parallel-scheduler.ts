@@ -1,5 +1,9 @@
 import type { ToolCall, ToolDescriptor } from './types';
 import { readBoolean, readCapabilityMetadata } from './capability-metadata';
+import {
+  buildDependencyGraphPlan,
+  type DependencyReferenceCandidate,
+} from './dependency-graph';
 
 export const DEFAULT_PARALLEL_TOOL_CONCURRENCY = 4;
 export const MAX_PARALLEL_TOOL_CONCURRENCY = 8;
@@ -14,6 +18,7 @@ export interface ParallelToolExecutionPlan {
   parallelCallCount: number;
   serialCallCount: number;
   maxConcurrency: number;
+  dagFallbackCount: number;
 }
 
 export interface ExecutePlannedToolCallsOptions<T> {
@@ -78,51 +83,96 @@ export function planToolCallExecution(
 ): ParallelToolExecutionPlan {
   const normalizedConcurrency = normalizeConcurrency(maxConcurrency);
   const descriptorMap = buildDescriptorLookup(descriptors);
+  const resolvedDescriptors = calls.map((call) => (
+    resolveDescriptor(call, descriptorMap)
+  ));
+  const referenceCandidates: DependencyReferenceCandidate[] = resolvedDescriptors
+    .flatMap((descriptor, index) => descriptor
+      ? [{
+        index,
+        descriptorId: descriptor.id,
+        invocationName: descriptor.invocationName,
+      }]
+      : []);
+
   const batches: ToolExecutionBatch[] = [];
   let pendingParallel: number[] = [];
   let parallelCallCount = 0;
   let serialCallCount = 0;
+  let dagFallbackCount = 0;
 
-  const flushParallel = (): void => {
-    if (pendingParallel.length === 0) return;
+  const pushBatch = (indexes: readonly number[]): void => {
+    if (indexes.length === 0) return;
+    const callIndexes = [...indexes];
+    batches.push({
+      mode: callIndexes.length > 1 ? 'parallel' : 'serial',
+      callIndexes,
+    });
+    if (callIndexes.length > 1) parallelCallCount += callIndexes.length;
+    else serialCallCount += 1;
+  };
 
+  const pushLayerWithResourceLocks = (layer: readonly number[]): void => {
     let chunk: number[] = [];
     let heldLocks = new Set<string>();
 
-    const pushChunk = (): void => {
-      if (chunk.length === 0) return;
-      batches.push({
-        mode: chunk.length > 1 ? 'parallel' : 'serial',
-        callIndexes: [...chunk],
-      });
-      if (chunk.length > 1) parallelCallCount += chunk.length;
-      else serialCallCount += 1;
+    const flushChunk = (): void => {
+      pushBatch(chunk);
       chunk = [];
       heldLocks = new Set<string>();
     };
 
-    for (const callIndex of pendingParallel) {
-      const call = calls[callIndex]!;
-      const descriptor = resolveDescriptor(call, descriptorMap);
+    for (const callIndex of layer) {
+      const descriptor = resolvedDescriptors[callIndex];
       const resourceLocks = descriptor
         ? readCapabilityMetadata(descriptor).resourceLocks
         : [];
       const conflicts = resourceLocks.some((lock) => heldLocks.has(lock));
 
       if (chunk.length >= normalizedConcurrency || conflicts) {
-        pushChunk();
+        flushChunk();
       }
 
       chunk.push(callIndex);
       for (const lock of resourceLocks) heldLocks.add(lock);
     }
 
-    pushChunk();
+    flushChunk();
+  };
+
+  const flushParallel = (): void => {
+    if (pendingParallel.length === 0) return;
+
+    const dependenciesByIndex = new Map<number, readonly string[]>();
+    for (const index of pendingParallel) {
+      const descriptor = resolvedDescriptors[index];
+      dependenciesByIndex.set(
+        index,
+        descriptor ? readCapabilityMetadata(descriptor).dependencies : [],
+      );
+    }
+
+    const graph = buildDependencyGraphPlan({
+      nodeIndexes: pendingParallel,
+      dependenciesByIndex,
+      referenceCandidates,
+    });
+
+    if (!graph.ok) {
+      dagFallbackCount += 1;
+      for (const index of pendingParallel) pushBatch([index]);
+      pendingParallel = [];
+      return;
+    }
+
+    for (const layer of graph.layers) {
+      pushLayerWithResourceLocks(layer);
+    }
     pendingParallel = [];
   };
 
-  calls.forEach((call, index) => {
-    const descriptor = resolveDescriptor(call, descriptorMap);
+  calls.forEach((_call, index) => {
+    const descriptor = resolvedDescriptors[index];
     if (
       descriptor &&
       isParallelSafeMcpDescriptor(descriptor) &&
@@ -133,8 +183,7 @@ export function planToolCallExecution(
     }
 
     flushParallel();
-    batches.push({ mode: 'serial', callIndexes: [index] });
-    serialCallCount += 1;
+    pushBatch([index]);
   });
 
   flushParallel();
@@ -144,6 +193,7 @@ export function planToolCallExecution(
     parallelCallCount,
     serialCallCount,
     maxConcurrency: normalizedConcurrency,
+    dagFallbackCount,
   };
 }
 
@@ -209,7 +259,6 @@ export function isParallelSafeMcpDescriptor(descriptor: ToolDescriptor): boolean
   }
   if (metadata.requiresApproval === true) return false;
   if (metadata.parallelSafe === false) return false;
-  if (metadata.dependencies.length > 0) return false;
   if (
     metadata.effect === 'write' ||
     metadata.effect === 'external_side_effect'
