@@ -57,11 +57,6 @@ interface JevChoiceAnswer {
   confidence: number;
 }
 
-interface JevSystemOneResponse {
-  model: string;
-  answers: Record<string, unknown>;
-}
-
 export class JevShadowSettingsError extends Error {
   readonly code:
     | 'jev_shadow_settings_invalid'
@@ -385,9 +380,10 @@ function parseChoiceResponse(
 }
 
 function readResponseModel(value: unknown): string | null {
-  const record = asPlainRecord(value) as JevSystemOneResponse | null;
-  return record && typeof record.model === 'string' && record.model.trim()
-    ? record.model.trim()
+  const record = asPlainRecord(value);
+  const model = record?.model;
+  return typeof model === 'string' && model.trim()
+    ? model.trim()
     : null;
 }
 
