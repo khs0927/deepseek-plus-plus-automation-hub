@@ -62,7 +62,7 @@ describe('pre-authorization runtime payload transformer', () => {
           ...call.provider!,
           id: 'other-provider',
         },
-        source: { trigger: 'other', requestId: 'other' } as ToolCall['source'],
+        source: { trigger: 'other', requestId: 'other' } as unknown as ToolCall['source'],
         payload: { ...call.payload as Record<string, unknown>, engine: 'gemini' },
       })),
     };
