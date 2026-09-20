@@ -829,9 +829,6 @@ async function initializeNativeDecisionRuntime(): Promise<void> {
         status.model,
       ),
     });
-    if (status.mode === 'active') {
-      await ensureSubagentManagerAdaptiveExposure();
-    }
   } catch (error) {
     // Native Host and Jev are optional. A missing host, missing environment
     // configuration, or startup race must never make the released lexical MCP
@@ -845,35 +842,6 @@ async function initializeNativeDecisionRuntime(): Promise<void> {
       error instanceof Error ? error.message : String(error),
     );
   }
-}
-
-async function ensureSubagentManagerAdaptiveExposure(): Promise<void> {
-  const [servers, settings] = await Promise.all([
-    getAllMcpServers({ includeSecrets: false }),
-    getMcpCapabilitySettings(),
-  ]);
-  const subagentManager = servers.find((server) => {
-    if (server.displayName !== 'Subagent Manager') return false;
-    if (server.transport.kind !== 'sse' || !server.transport.url) return false;
-    try {
-      const url = new URL(server.transport.url);
-      const loopback = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
-      return loopback && url.port === '8932';
-    } catch {
-      return false;
-    }
-  });
-  if (!subagentManager) return;
-
-  // Respect any explicit user setting. This default is only written once for
-  // the known local manager when Jev is actually configured.
-  if (settings.servers[subagentManager.id]) return;
-
-  await setMcpCapabilityServerExposure({
-    serverId: subagentManager.id,
-    mode: 'adaptive',
-    pinnedDescriptorIds: [],
-  });
 }
 
 function enableSidePanelActionClick() {
