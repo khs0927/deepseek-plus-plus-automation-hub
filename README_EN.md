@@ -1089,6 +1089,8 @@ Thanks to this release's contributors: [@todayzhou](https://github.com/todayzhou
 
 ## Installation
 
+See the complete [INSTALL.md](INSTALL.md) guide for clone-to-install steps, the Windows double-click wrapper, the macOS/Linux one-click script, Native Host setup, browser security boundaries, and uninstall.
+
 ### Install from Chrome Web Store
 
 Chrome users can install DeepSeek++ directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/deepseek++/kdmpkkahkhdmdhfkdihkopikgcocbpbf?hl=zh-CN). After installation, open [DeepSeek Web](https://chat.deepseek.com) and enable memory, Skills, MCP tools, web tools, conversation export, and automation from the side panel as needed.

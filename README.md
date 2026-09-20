@@ -1091,6 +1091,8 @@ npm run shell:install -- --browser chrome --extension-id <扩展ID>
 
 ## 安装
 
+从源码安装的完整流程（包括 Windows 双击安装、macOS/Linux 一键脚本、Native Host、浏览器安全边界和卸载）见 [INSTALL.md](INSTALL.md)。
+
 ### 从 Chrome Web Store 安装
 
 Chrome 用户可以直接从 [Chrome Web Store](https://chromewebstore.google.com/detail/deepseek++/kdmpkkahkhdmdhfkdihkopikgcocbpbf?hl=zh-CN) 安装 DeepSeek++。安装后打开 [DeepSeek 网页版](https://chat.deepseek.com)，即可在侧边栏中按需启用记忆、Skill、MCP、联网工具、对话导出和自动化能力。

@@ -15,6 +15,7 @@
 | MCP 병렬 scheduler | 구현 | owner/server/lane/resource lock/fair queue/correlation |
 | 프로젝트 대화 기억 | 구현 | project-context store/search/capture/provenance |
 | 실브라우저 다중 대화 harness | 구현·Edge 2-tab smoke 통과 | MV3 worker, sidepanel, 2개 DeepSeek 탭 확인 |
+| clone 후 원클릭 설치 래퍼 | 구현 | `install-one-click.cmd/.ps1/.sh`, `INSTALL.md`, 설치 매트릭스 |
 | Chrome 실브라우저 smoke | 이 환경 미확인 | 현재 컴퓨터에서 Chrome channel worker가 시작되지 않음 |
 | Firefox 실브라우저 smoke | 수동 필요 | about:debugging 임시 add-on 방식 |
 | realpath 기반 자원 잠금 | 미완료 | 현재 scheduler는 lexical normalized path만 사용 |
@@ -22,7 +23,7 @@
 
 ## 설치와 사용
 
-다른 컴퓨터에서는 다음을 실행한다.
+다른 컴퓨터에서는 루트의 [INSTALL.md](../../INSTALL.md)에 있는 원클릭 래퍼를 우선 사용한다. 수동 CLI는 다음과 같다.
 
 ```bash
 git clone https://github.com/khs0927/deepseek-plus-plus-automation-hub.git
@@ -199,4 +200,4 @@ canonical source와 배포 복사본은 모두 같은 기능을 갖는다.
 - Chrome 실브라우저 harness: 현재 환경에서 service worker timeout으로 미확인
 - Firefox 실브라우저 harness: 수동 검증 필요
 
-푸시 전 남은 검증은 전체 test suite, `build:all`, MCP mock, manifest policy, diff check와 staged diff 점검이다.
+현재 남은 작업의 단일 목록은 루트 [TODO.md](../../TODO.md)다. 특히 realpath 기반 자원 잠금은 아직 lexical path key 단계이며, Chrome 실브라우저와 Firefox 실브라우저는 각각 미확인·수동 검증 상태다.
