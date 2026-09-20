@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 // @ts-ignore - Shell Host runtime modules are executable .mjs files.
@@ -102,19 +102,24 @@ describe('Shell Host modular runtime ownership', () => {
     tempRoots.push(tempRoot);
     const packDir = tempRoot;
     const installDir = join(tempRoot, 'installed');
-    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-    const packOutput = execFileSync(npm, [
+    // Windows cannot spawn .cmd via execFile (EINVAL); run the npm CLI
+    // through the current Node binary instead. Same args, same behavior.
+    const npmBin = process.platform === 'win32' ? process.execPath : 'npm';
+    const withNpmCli = (args: string[]) => process.platform === 'win32'
+      ? [join(dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'), ...args]
+      : args;
+    const packOutput = execFileSync(npmBin, withNpmCli([
       'pack',
       '--json',
       '--pack-destination',
       packDir,
-    ], {
+    ]), {
       cwd: resolve('packages/shell-host'),
       encoding: 'utf8',
     });
     const [{ filename }] = JSON.parse(packOutput) as Array<{ filename: string }>;
     const tarball = resolve(packDir, filename);
-    execFileSync(npm, [
+    execFileSync(npmBin, withNpmCli([
       'install',
       '--ignore-scripts',
       '--no-audit',
@@ -123,7 +128,7 @@ describe('Shell Host modular runtime ownership', () => {
       '--prefix',
       installDir,
       tarball,
-    ], { stdio: 'pipe' });
+    ]), { stdio: 'pipe' });
 
     const installedRoot = join(installDir, 'node_modules', shellPackage.name);
     const installedPackage = readJson(join(installedRoot, 'package.json'));
