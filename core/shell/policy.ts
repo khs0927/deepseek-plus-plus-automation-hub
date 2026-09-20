@@ -28,6 +28,15 @@ export const LOCAL_FILE_SHELL_TOOL_NAMES = [
   'local_file_stat',
   'local_file_read',
   'local_file_write',
+  'local_dir_list',
+  'local_file_search',
+] as const;
+
+export const TASK_SHELL_TOOL_NAMES = [
+  'task_spawn',
+  'task_status',
+  'task_kill',
+  'task_list',
 ] as const;
 
 export function createShellMcpPresetInput(
@@ -75,7 +84,8 @@ export function buildShellAllowlistUpgrade(allowlist: McpToolAllowlist): McpTool
   const names = new Set(allowlist.toolNames);
   const missingLocalSkillTools = LOCAL_SKILL_SHELL_TOOL_NAMES.filter((name) => !names.has(name));
   const missingLocalFileTools = LOCAL_FILE_SHELL_TOOL_NAMES.filter((name) => !names.has(name));
-  const missing = [...missingLocalSkillTools, ...missingLocalFileTools];
+  const missingTaskTools = TASK_SHELL_TOOL_NAMES.filter((name) => !names.has(name));
+  const missing = [...missingLocalSkillTools, ...missingLocalFileTools, ...missingTaskTools];
   if (missing.length === 0) return null;
 
   return {

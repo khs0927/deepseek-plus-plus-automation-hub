@@ -5,7 +5,26 @@ export const SHELL_MCP_NATIVE_HOST = 'com.deepseek_pp.shell';
 
 export const OFFICECLI_BIN_PATH = 'officecli';
 
-export const SHELL_TOOL_NAMES = ['shell_exec', 'shell_status', 'python_status', 'python_exec', 'local_skill_preview', 'local_folder_pick', 'local_file_stat', 'local_file_read', 'local_file_write', 'shell_session_begin', 'shell_session_exec', 'shell_session_end'] as const;
+export const SHELL_TOOL_NAMES = [
+  'shell_exec',
+  'shell_status',
+  'python_status',
+  'python_exec',
+  'local_skill_preview',
+  'local_folder_pick',
+  'local_file_stat',
+  'local_file_read',
+  'local_file_write',
+  'shell_session_begin',
+  'shell_session_exec',
+  'shell_session_end',
+  'local_dir_list',
+  'local_file_search',
+  'task_spawn',
+  'task_status',
+  'task_kill',
+  'task_list',
+] as const;
 export type ShellToolName = typeof SHELL_TOOL_NAMES[number];
 
 export interface ShellToolSpec {
@@ -87,5 +106,41 @@ export const SHELL_TOOL_SPECS: readonly ShellToolSpec[] = [
     title: '关闭持久 Shell 会话',
     description: '关闭由 shell_session_begin 开启的持久 Shell 会话并释放其子进程。调用后该 session_id 不再有效。',
     risk: 'medium',
+  },
+  {
+    name: 'local_dir_list',
+    title: '列出本地目录内容',
+    description: '无需启动 shell 快速列出本地目录的文件与子文件夹，返回结构化 JSON。',
+    risk: 'low',
+  },
+  {
+    name: 'local_file_search',
+    title: '搜索本地文件',
+    description: '无需启动 shell 快速按文件名或内容正则表达式搜索目录下的文件。',
+    risk: 'low',
+  },
+  {
+    name: 'task_spawn',
+    title: '启动后台任务',
+    description: '在后台异步启动长期运行的命令（开发服务器、编译、守护进程等），不阻塞 shell。返回 task_id。',
+    risk: 'high',
+  },
+  {
+    name: 'task_status',
+    title: '查看后台任务状态',
+    description: '查看后台任务的运行状态、退出码及增量标准输出/错误日志。',
+    risk: 'low',
+  },
+  {
+    name: 'task_kill',
+    title: '终止后台任务',
+    description: '强制终止后台任务及其整个子进程树。',
+    risk: 'medium',
+  },
+  {
+    name: 'task_list',
+    title: '列出所有后台任务',
+    description: '列出当前所有正在运行或已完成的后台任务。',
+    risk: 'low',
   },
 ] as const;
