@@ -2,6 +2,7 @@ export const DECISION_PURPOSES = [
   'mcp_rank',
   'mcp_fanout',
   'result_judge',
+  'browser_action',
   'skill_rank',
   'agent_route',
   'model_route',
