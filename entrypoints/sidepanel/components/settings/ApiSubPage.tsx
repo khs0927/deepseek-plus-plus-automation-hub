@@ -1,6 +1,7 @@
 import { useI18n } from '../../i18n';
 import { SettingsSection, StatusBadge, StatusMessage, TextField, ToggleRow } from './primitives';
 import type { SettingsState } from '../../controllers/useSettingsController';
+import JevShadowSettingsSection from './JevShadowSettingsSection';
 
 export default function ApiSubPage({ state }: { state: SettingsState }) {
   const { t } = useI18n();
@@ -71,6 +72,8 @@ export default function ApiSubPage({ state }: { state: SettingsState }) {
           </StatusMessage>
         )}
       </SettingsSection>
+
+      <JevShadowSettingsSection />
 
       <SettingsSection
         title={t('sidepanel.settings.multimodalApi')}
