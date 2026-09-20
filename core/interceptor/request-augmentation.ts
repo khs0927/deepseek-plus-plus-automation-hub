@@ -39,6 +39,10 @@ export interface RequestAugmentationState {
   promptSettings?: Partial<PromptInjectionSettings>;
   // Auto-activation (implicit scoring) toggle; defaults to DEFAULT (first-message on, every-message off).
   skillAutoActivation?: SkillAutoActivationSettings;
+  // Optional background-owned preflight selection. undefined preserves the
+  // released synchronous lexical path; null means preflight explicitly found
+  // no activation candidate.
+  implicitSkillSelection?: { name: string; skillDir: string } | null;
 }
 
 export interface RequestBodyAugmentationResult {
@@ -220,7 +224,9 @@ export function augmentDecodedRequestBody(
     const auto = state.skillAutoActivation ?? DEFAULT_SKILL_AUTO_ACTIVATION_SETTINGS;
     const implicitAllowed = auto.everyMessage || (auto.firstMessage && isFirstMessage);
     if (implicitAllowed) {
-      const picked = selectImplicitLocalSkill(state.skills, originalPrompt);
+      const picked = state.implicitSkillSelection === undefined
+        ? selectImplicitLocalSkill(state.skills, originalPrompt)
+        : resolvePreflightLocalSkill(state.skills, state.implicitSkillSelection);
       if (picked) {
         activeLocalSkillDir = picked.remote?.localDirectory || undefined;
         resolved = {
@@ -369,6 +375,18 @@ function buildLocalSkillSystemContext(
     skillMdPath,
   });
   return `${directive}\n\n${resolved.combinedPrompt}`;
+}
+
+function resolvePreflightLocalSkill(
+  skills: AugmentationSkill[],
+  selection: { name: string; skillDir: string } | null,
+): AugmentationSkill | null {
+  if (!selection) return null;
+  return skills.find((skill) => (
+    isLocalIndexSkill(skill) &&
+    skill.name === selection.name &&
+    (skill.remote?.localDirectory ?? '') === selection.skillDir
+  )) ?? null;
 }
 
 // Implicit branch: score local indexed skills against user input and return the matched skill object (or null).
