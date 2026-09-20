@@ -60,6 +60,18 @@ export interface RuntimeCapabilityInvocationResolver {
   ): Promise<RuntimeCapabilityInvocationResolution>;
 }
 
+export interface RuntimePreAuthorizationTransformInput {
+  call: ToolCall;
+  currentDescriptors: readonly ToolDescriptor[];
+  signal?: AbortSignal;
+}
+
+export interface RuntimePreAuthorizationTransformer {
+  transform(
+    input: RuntimePreAuthorizationTransformInput,
+  ): Promise<ToolCall>;
+}
+
 export interface RuntimeToolOutcomeObservation {
   call: ToolCall;
   descriptor: ToolDescriptor;
@@ -73,6 +85,7 @@ export interface RuntimeToolOutcomeObserver {
 
 export interface RuntimeToolRuntimeOptions {
   capabilityInvocationResolver?: RuntimeCapabilityInvocationResolver;
+  preAuthorizationTransformer?: RuntimePreAuthorizationTransformer;
   outcomeObserver?: RuntimeToolOutcomeObserver;
 }
 
@@ -115,6 +128,7 @@ export function createRuntimeToolRuntime(
         locale,
         callOptions,
         runtimeOptions.capabilityInvocationResolver,
+        runtimeOptions.preAuthorizationTransformer,
         runtimeOptions.outcomeObserver,
       ),
   };
@@ -138,6 +152,7 @@ async function executeRuntimeToolCall(
   locale: SupportedLocale = DEFAULT_LOCALE,
   options: RuntimeToolCallOptions = {},
   capabilityInvocationResolver?: RuntimeCapabilityInvocationResolver,
+  preAuthorizationTransformer?: RuntimePreAuthorizationTransformer,
   outcomeObserver?: RuntimeToolOutcomeObserver,
 ): Promise<ToolResult> {
   assertRuntimeExecutionActive(options);
@@ -170,8 +185,14 @@ async function executeRuntimeToolCall(
   let currentDescriptors: ToolDescriptor[];
   try {
     currentDescriptors = await getRuntimeDescriptors(providerRegistry, locale, true);
-    authorized = await authorizeToolExecution(
+    const transformedCall = await transformToolCallPayloadSafely(
+      preAuthorizationTransformer,
       identifiedCall,
+      currentDescriptors,
+      options.signal,
+    );
+    authorized = await authorizeToolExecution(
+      transformedCall,
       context,
       currentDescriptors,
     );
@@ -281,6 +302,37 @@ async function executeRuntimeToolCall(
     signal: options.signal,
   });
   return result;
+}
+
+async function transformToolCallPayloadSafely(
+  transformer: RuntimePreAuthorizationTransformer | undefined,
+  call: ToolCall,
+  currentDescriptors: readonly ToolDescriptor[],
+  signal?: AbortSignal,
+): Promise<ToolCall> {
+  if (!transformer) return call;
+  try {
+    const transformed = await transformer.transform({
+      call,
+      currentDescriptors,
+      signal,
+    });
+    // Deliberately accept only the payload. Authorization, provider identity,
+    // descriptor identity, call/source ownership and replay identity all remain
+    // owned by the original runtime call.
+    return {
+      ...call,
+      payload: transformed.payload,
+    };
+  } catch (error) {
+    diagnosticLogBuffer.record({
+      level: 'warn',
+      source: 'tool-runtime',
+      message: `pre-authorization tool transform failed: ${call.name}`,
+      details: error instanceof Error ? error.message : String(error),
+    });
+    return call;
+  }
 }
 
 async function observeToolOutcomeSafely(

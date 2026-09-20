@@ -86,6 +86,7 @@ import { configureDecisionRuntime } from '../core/decision/provider';
 import { TypeSafeJevDecisionProvider } from '../core/decision/typesafe-jev-provider';
 import { decisionToolOutcomeObserver } from '../core/decision/tool-outcome-observer';
 import { rankImplicitSkillWithDecision } from '../core/decision/skill-rank';
+import { decisionSubagentCallTransformer } from '../core/decision/subagent-route';
 import {
   createNativeTypeSafeSystemOneTransport,
   getNativeTypeSafeDecisionStatus,
@@ -317,6 +318,7 @@ const {
   refreshToolDescriptors: refreshRuntimeToolDescriptors,
 } = createRuntimeToolRuntime(createProductionToolProviderRegistry(), {
   capabilityInvocationResolver: createMcpCapabilityInvocationResolver(),
+  preAuthorizationTransformer: decisionSubagentCallTransformer,
   outcomeObserver: decisionToolOutcomeObserver,
 });
 let currentBackgroundLocale: SupportedLocale = DEFAULT_LOCALE;

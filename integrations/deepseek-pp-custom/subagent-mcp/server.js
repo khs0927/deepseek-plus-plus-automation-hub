@@ -479,6 +479,7 @@ const server = http.createServer(async (req, res) => {
       service: 'deepseek-subagent-manager',
       port: PORT,
       engines: ['auto', 'deepseek_web', 'gemini', 'groq'],
+      availability: orchestrator.getEngineAvailability(),
       stats
     }));
     return;

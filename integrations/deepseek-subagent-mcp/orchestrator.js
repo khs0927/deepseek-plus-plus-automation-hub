@@ -92,6 +92,14 @@ class SubagentOrchestrator {
     return 'deepseek_web';
   }
 
+  getEngineAvailability() {
+    return {
+      deepseek_web: true,
+      gemini: Boolean(process.env.GEMINI_API_KEY || this.config.geminiApiKey),
+      groq: Boolean(process.env.GROQ_API_KEY || this.config.groqApiKey)
+    };
+  }
+
   getStats() {
     const counts = {
       QUEUED: 0,
