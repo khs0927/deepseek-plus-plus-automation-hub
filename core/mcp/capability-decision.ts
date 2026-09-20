@@ -46,7 +46,7 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
   const effectiveSettings = withActiveDecisionExposureDefaults(
     input.descriptors,
     input.settings,
-    runtime.mode === 'active' && runtime.provider !== null,
+    runtime.mode === 'active' && runtime.provider !== null && input.intent.trim().length > 0,
   );
   const baseline = projectMcpCapabilityDescriptors({
     descriptors: input.descriptors,
