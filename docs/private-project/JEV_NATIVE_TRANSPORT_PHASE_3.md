@@ -32,8 +32,9 @@ Set these in the environment inherited by the browser / Native Host process:
 Recommended rollout:
 
 1. Start with `DEEPSEEK_PP_JEV_MODE=shadow`.
-2. Compare DecisionTrace against lexical routing.
-3. Switch to `active` only after the shadow metrics are acceptable.
+2. For shadow comparison, explicitly place the MCP servers you want to evaluate in `adaptive` mode; shadow itself never changes exposure settings.
+3. Compare DecisionTrace against lexical routing.
+4. Switch to `active` only after the shadow metrics are acceptable. In active mode, the known local Subagent Manager can be auto-initialized to `adaptive` when no user setting exists.
 
 After changing environment variables, restart the browser so the Native Host inherits the new environment.
 
@@ -45,7 +46,7 @@ At background startup DeepSeek++ probes `decision/status`.
 
 - no Native Host / no key -> provider remains disconnected and lexical ranking continues.
 - key + shadow -> Jev decisions are made and traced, but lexical projection remains authoritative.
-- key + active -> high-confidence Jev ranking can reorder eligible adaptive MCP candidates.
+- key + active -> high-confidence Jev ranking can reorder eligible adaptive MCP candidates. If the known local Subagent Manager has no explicit exposure setting, DeepSeek++ initializes that server to `adaptive`; existing user settings are preserved.
 - provider errors / invalid answers / low confidence -> lexical fallback.
 
 Jev still cannot:
