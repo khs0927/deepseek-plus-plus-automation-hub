@@ -143,6 +143,12 @@ await testMethod('tools/list', 'tools/list', undefined, (res) => {
     'shell_session_begin',
     'shell_session_exec',
     'shell_session_end',
+    'local_dir_list',
+    'local_file_search',
+    'task_spawn',
+    'task_status',
+    'task_kill',
+    'task_list',
   ];
   assert(res.result.tools.length === requiredTools.length, `expected exactly ${requiredTools.length} tools, got ${res.result.tools.length}`);
   assert(JSON.stringify(names) === JSON.stringify(requiredTools), `unexpected tool order: ${names.join(', ')}`);
