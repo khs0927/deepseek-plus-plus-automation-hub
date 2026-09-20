@@ -81,7 +81,7 @@ import {
   setMcpCapabilityServerExposure,
   updateMcpCapabilitySettings,
 } from '../core/mcp/capability-settings';
-import { projectMcpCapabilityDescriptors } from '../core/mcp/capability-projection';
+import { projectMcpCapabilityDescriptorsWithDecision } from '../core/mcp/capability-decision';
 import {
   authorizeExternalToolPayloadChunk,
   closeToolAuthorization,
@@ -1305,7 +1305,11 @@ async function getPromptToolDescriptors(
     getRuntimeToolDescriptors(locale),
     getMcpCapabilitySettings(),
   ]);
-  return projectMcpCapabilityDescriptors({ descriptors, settings, intent }).descriptors;
+  return (await projectMcpCapabilityDescriptorsWithDecision({
+    descriptors,
+    settings,
+    intent,
+  })).descriptors;
 }
 
 async function runBrowserSandboxToolResult(request: SandboxRunRequest): Promise<ToolResult> {
@@ -1481,11 +1485,11 @@ async function executeAutomationWithContext(
     getActivePreset(),
     getRuntimeToolDescriptors(currentBackgroundLocale),
   ]);
-  const enabledDescriptors = projectMcpCapabilityDescriptors({
+  const enabledDescriptors = (await projectMcpCapabilityDescriptorsWithDecision({
     descriptors: toolDescriptors.filter((descriptor) => descriptor.execution.enabled),
     settings: await getMcpCapabilitySettings(),
     intent: request.prompt,
-  }).descriptors;
+  })).descriptors;
   const [project, projectPromptContext] = request.chatSessionId
     ? await Promise.all([
       getProjectForConversation(request.chatSessionId),
@@ -1561,11 +1565,11 @@ async function buildSidepanelPrompt(request: ChatPromptBuildRequest): Promise<{
   });
 
   const sidepanelDescriptors = filterSidepanelChatToolDescriptors(toolDescriptors);
-  const enabledDescriptors = projectMcpCapabilityDescriptors({
+  const enabledDescriptors = (await projectMcpCapabilityDescriptorsWithDecision({
     descriptors: sidepanelDescriptors,
     settings: await getMcpCapabilitySettings(),
     intent: request.prompt,
-  }).descriptors;
+  })).descriptors;
   // Model-facing retirement (drop plugin artifact extension): the sidepanel
   // prompt must never list the retired artifact tools, or the model keeps
   // delivering files as artifact XML. The EXECUTION catalog (enabledDescriptors)
