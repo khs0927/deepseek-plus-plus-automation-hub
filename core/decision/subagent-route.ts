@@ -34,8 +34,12 @@ export const decisionSubagentCallTransformer: RuntimePreAuthorizationTransformer
 export async function routeSubagentCall(
   input: RuntimePreAuthorizationTransformInput,
 ): Promise<ToolCall> {
-  const toolName = subagentToolName(input.descriptorForCall ?? undefined);
-  return input.call;
+  const descriptor = resolveSubagentDescriptor(
+    input.call,
+    input.currentDescriptors,
+  );
+  if (!descriptor) return input.call;
+  return routeSubagentCallInternal(input, descriptor);
 }
 
 async function routeSubagentCallInternal(
@@ -244,10 +248,11 @@ async function readEngineAvailability(
     if (!isPlainRecord(raw) || !isPlainRecord(raw.availability)) {
       return unavailableEngines();
     }
+    const availability = raw.availability;
     return {
-      deepseek_web: raw.availability.deepseek_web === true,
-      gemini: raw.availability.gemini === true,
-      groq: raw.availability.groq === true,
+      deepseek_web: availability.deepseek_web === true,
+      gemini: availability.gemini === true,
+      groq: availability.groq === true,
     };
   } catch {
     return unavailableEngines();
