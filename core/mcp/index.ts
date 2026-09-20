@@ -65,6 +65,32 @@ export {
 } from './capability-projection';
 
 export {
+  DEFAULT_JEV_SHADOW_SETTINGS,
+  JEV_SHADOW_API_KEY_STORAGE_KEY,
+  JEV_SHADOW_SETTINGS_STORAGE_KEY,
+  JEV_SHADOW_SETTINGS_VERSION,
+  JEV_SHADOW_TELEMETRY_LIMIT,
+  JEV_SYSTEM_ONE_ENDPOINT,
+  JevShadowSettingsError,
+  clearJevShadowApiKey,
+  clearJevShadowTelemetry,
+  decodeJevShadowSettings,
+  getJevShadowApiKey,
+  getJevShadowSettings,
+  getJevShadowTelemetry,
+  runMcpDiscoveryJevShadow,
+  saveJevShadowApiKey,
+  updateJevShadowSettings,
+} from './jev-shadow';
+
+export type {
+  JevShadowObservationStatus,
+  JevShadowSettings,
+  McpJevShadowObservation,
+  RunMcpDiscoveryJevShadowInput,
+} from './jev-shadow';
+
+export {
   MCP_CAPABILITY_TOOL_NAMES,
   MCP_CAPABILITY_TOOL_PROVIDER,
   createMcpCapabilityToolDescriptors,

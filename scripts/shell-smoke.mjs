@@ -13,6 +13,9 @@ const USER_LOCAL_BIN_DIR = resolve(homedir(), '.local', 'bin');
 const SHELL_PACKAGE_VERSION = JSON.parse(
   readFileSync(resolve(PROJECT_ROOT, 'packages', 'shell-host', 'package.json'), 'utf8'),
 ).version;
+const EXPECTED_SHELL_TOOL_NAMES = JSON.parse(
+  readFileSync(resolve(PROJECT_ROOT, 'tests', 'fixtures', 'external-runtime', 'shell-tools.json'), 'utf8'),
+).map((tool) => tool.name);
 
 let passed = 0;
 let failed = 0;
@@ -130,22 +133,14 @@ await testMethod('tools/list', 'tools/list', undefined, (res) => {
   assert(res.result, 'expected result');
   assert(Array.isArray(res.result.tools), 'expected tools array');
   const names = res.result.tools.map(t => t.name);
-  const requiredTools = [
-    'shell_exec',
-    'shell_status',
-    'python_status',
-    'python_exec',
-    'local_skill_preview',
-    'local_folder_pick',
-    'local_file_stat',
-    'local_file_read',
-    'local_file_write',
-    'shell_session_begin',
-    'shell_session_exec',
-    'shell_session_end',
-  ];
-  assert(res.result.tools.length === requiredTools.length, `expected exactly ${requiredTools.length} tools, got ${res.result.tools.length}`);
-  assert(JSON.stringify(names) === JSON.stringify(requiredTools), `unexpected tool order: ${names.join(', ')}`);
+  assert(
+    res.result.tools.length === EXPECTED_SHELL_TOOL_NAMES.length,
+    `expected exactly ${EXPECTED_SHELL_TOOL_NAMES.length} tools, got ${res.result.tools.length}`,
+  );
+  assert(
+    JSON.stringify(names) === JSON.stringify(EXPECTED_SHELL_TOOL_NAMES),
+    `unexpected tool order: ${names.join(', ')}`,
+  );
 });
 
 await testMethod('tools/call shell_status', 'tools/call', {
