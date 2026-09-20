@@ -2,14 +2,14 @@
   {
     "directoryName": "computer-use",
     "displayName": "computer-use",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-bundled\\computer-use",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-bundled\\computer-use",
     "importedAt": 1789784453402,
     "importedSkillNames": [
       "computer-use"
     ],
     "lastCheckedAt": 1789784453403,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-bundled\\computer-use",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-bundled\\computer-use",
     "skillPaths": [
       "26.915.31945/skills/computer-use/SKILL.md"
     ],
@@ -19,14 +19,14 @@
   {
     "directoryName": "visualize",
     "displayName": "visualize",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-bundled\\visualize",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-bundled\\visualize",
     "importedAt": 1789784453519,
     "importedSkillNames": [
       "visualize"
     ],
     "lastCheckedAt": 1789784453520,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-bundled\\visualize",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-bundled\\visualize",
     "skillPaths": [
       "1.0.38/skills/visualize/SKILL.md"
     ],
@@ -36,7 +36,7 @@
   {
     "directoryName": "airtable",
     "displayName": "airtable",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\airtable",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\airtable",
     "importedAt": 1789784453649,
     "importedSkillNames": [
       "airtable-cli",
@@ -45,7 +45,7 @@
     ],
     "lastCheckedAt": 1789784453650,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\airtable",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\airtable",
     "skillPaths": [
       "7.0.0/skills/airtable-cli/SKILL.md",
       "7.0.0/skills/airtable-filters/SKILL.md",
@@ -57,7 +57,7 @@
   {
     "directoryName": "app-69312da8e4dc81919370cb86fd172b6c",
     "displayName": "app-69312da8e4dc81919370cb86fd172b6c",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-69312da8e4dc81919370cb86fd172b6c",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\app-69312da8e4dc81919370cb86fd172b6c",
     "importedAt": 1789784453785,
     "importedSkillNames": [
       "adobe-batch-edit-photos",
@@ -69,7 +69,7 @@
     ],
     "lastCheckedAt": 1789784453787,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-69312da8e4dc81919370cb86fd172b6c",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\app-69312da8e4dc81919370cb86fd172b6c",
     "skillPaths": [
       "8.0.0/skills/adobe-batch-edit-photos/SKILL.md",
       "8.0.0/skills/adobe-create-mockups/SKILL.md",
@@ -84,14 +84,14 @@
   {
     "directoryName": "app-698da77dd2f48191ba19e15b0b188796",
     "displayName": "app-698da77dd2f48191ba19e15b0b188796",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-698da77dd2f48191ba19e15b0b188796",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\app-698da77dd2f48191ba19e15b0b188796",
     "importedAt": 1789784453926,
     "importedSkillNames": [
       "garchi-render-content"
     ],
     "lastCheckedAt": 1789784453928,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-698da77dd2f48191ba19e15b0b188796",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\app-698da77dd2f48191ba19e15b0b188796",
     "skillPaths": [
       "3.0.0/skills/garchi-render-content/SKILL.md"
     ],
@@ -101,7 +101,7 @@
   {
     "directoryName": "app-6996e5762c508191846b87c57edbbebe",
     "displayName": "app-6996e5762c508191846b87c57edbbebe",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-6996e5762c508191846b87c57edbbebe",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\app-6996e5762c508191846b87c57edbbebe",
     "importedAt": 1789784454117,
     "importedSkillNames": [
       "build-mcp-apps",
@@ -109,7 +109,7 @@
     ],
     "lastCheckedAt": 1789784454118,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-6996e5762c508191846b87c57edbbebe",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\app-6996e5762c508191846b87c57edbbebe",
     "skillPaths": [
       "6.0.0/skills/build-mcp-apps/SKILL.md",
       "6.0.0/skills/use-alpic/SKILL.md"
@@ -120,7 +120,7 @@
   {
     "directoryName": "app-69b31dc2110c8191b8b47dc98fe5a052",
     "displayName": "app-69b31dc2110c8191b8b47dc98fe5a052",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-69b31dc2110c8191b8b47dc98fe5a052",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\app-69b31dc2110c8191b8b47dc98fe5a052",
     "importedAt": 1789784454260,
     "importedSkillNames": [
       "clean-up-dropbox-content",
@@ -132,7 +132,7 @@
     ],
     "lastCheckedAt": 1789784454262,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-69b31dc2110c8191b8b47dc98fe5a052",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\app-69b31dc2110c8191b8b47dc98fe5a052",
     "skillPaths": [
       "6.0.0/skills/clean-up-dropbox-content/SKILL.md",
       "6.0.0/skills/collect-files-with-request/SKILL.md",
@@ -147,14 +147,14 @@
   {
     "directoryName": "app-69ea4ed2cf7c8191b742ef3622479ddd",
     "displayName": "app-69ea4ed2cf7c8191b742ef3622479ddd",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-69ea4ed2cf7c8191b742ef3622479ddd",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\app-69ea4ed2cf7c8191b742ef3622479ddd",
     "importedAt": 1789784454469,
     "importedSkillNames": [
       "search"
     ],
     "lastCheckedAt": 1789784454471,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-69ea4ed2cf7c8191b742ef3622479ddd",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\app-69ea4ed2cf7c8191b742ef3622479ddd",
     "skillPaths": [
       "4.0.1/skills/Search/SKILL.md"
     ],
@@ -164,7 +164,7 @@
   {
     "directoryName": "app-6a2528e2c49c8191a8015ba5475f177e",
     "displayName": "app-6a2528e2c49c8191a8015ba5475f177e",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a2528e2c49c8191a8015ba5475f177e",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a2528e2c49c8191a8015ba5475f177e",
     "importedAt": 1789784454970,
     "importedSkillNames": [
       "creativeclaw-add-video-intro-outro",
@@ -201,7 +201,7 @@
     ],
     "lastCheckedAt": 1789784454972,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a2528e2c49c8191a8015ba5475f177e",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\app-6a2528e2c49c8191a8015ba5475f177e",
     "skillPaths": [
       "5.1.0/skills/creativeclaw-add-video-intro-outro/SKILL.md",
       "5.1.0/skills/creativeclaw-build-film/SKILL.md",
@@ -317,7 +317,7 @@
   {
     "directoryName": "base44",
     "displayName": "base44",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\base44",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\base44",
     "importedAt": 1789784455509,
     "importedSkillNames": [
       "base44-cli",
@@ -328,7 +328,7 @@
     ],
     "lastCheckedAt": 1789784455513,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\base44",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\base44",
     "skillPaths": [
       "4.0.1/skills/base44-cli/SKILL.md",
       "4.0.1/skills/base44-remote-dev/SKILL.md",
@@ -342,7 +342,7 @@
   {
     "directoryName": "canva",
     "displayName": "canva",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\canva",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\canva",
     "importedAt": 1789784455760,
     "importedSkillNames": [
       "canva-brand-check",
@@ -356,7 +356,7 @@
     ],
     "lastCheckedAt": 1789784455767,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\canva",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\canva",
     "skillPaths": [
       "15.0.0/skills/canva-brand-check/SKILL.md",
       "15.0.0/skills/canva-branded-presentation/SKILL.md",
@@ -373,7 +373,7 @@
   {
     "directoryName": "circleci",
     "displayName": "circleci",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\circleci",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\circleci",
     "importedAt": 1789784456078,
     "importedSkillNames": [
       "circleci-builds",
@@ -383,7 +383,7 @@
     ],
     "lastCheckedAt": 1789784456085,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\circleci",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\circleci",
     "skillPaths": [
       "1.0.4/skills/builds/SKILL.md",
       "1.0.4/skills/chunk/SKILL.md",
@@ -396,7 +396,7 @@
   {
     "directoryName": "cloudflare",
     "displayName": "cloudflare",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\cloudflare",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\cloudflare",
     "importedAt": 1789784457053,
     "importedSkillNames": [
       "agents-sdk",
@@ -411,7 +411,7 @@
     ],
     "lastCheckedAt": 1789784457060,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\cloudflare",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\cloudflare",
     "skillPaths": [
       "0.1.2/skills/agents-sdk/SKILL.md",
       "0.1.2/skills/building-ai-agent-on-cloudflare/SKILL.md",
@@ -429,7 +429,7 @@
   {
     "directoryName": "convex",
     "displayName": "convex",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\convex",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\convex",
     "importedAt": 1789784457359,
     "importedSkillNames": [
       "add",
@@ -443,7 +443,7 @@
     ],
     "lastCheckedAt": 1789784457369,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\convex",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\convex",
     "skillPaths": [
       "2.0.1/skills/add/SKILL.md",
       "2.0.1/skills/check-updates/SKILL.md",
@@ -460,7 +460,7 @@
   {
     "directoryName": "data-analytics",
     "displayName": "data-analytics",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\data-analytics",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\data-analytics",
     "importedAt": 1789784457879,
     "importedSkillNames": [
       "analyze-data-quality",
@@ -486,7 +486,7 @@
     ],
     "lastCheckedAt": 1789784457887,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\data-analytics",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\data-analytics",
     "skillPaths": [
       "1.0.9/skills/analyze-data-quality/SKILL.md",
       "1.0.9/skills/build-dashboard/SKILL.md",
@@ -526,7 +526,7 @@
   {
     "directoryName": "fal",
     "displayName": "fal",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\fal",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\fal",
     "importedAt": 1789784458263,
     "importedSkillNames": [
       "character-design",
@@ -547,7 +547,7 @@
     ],
     "lastCheckedAt": 1789784458279,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\fal",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\fal",
     "skillPaths": [
       "1.1.0/skills/character-design/SKILL.md",
       "1.1.0/skills/cinematography/SKILL.md",
@@ -571,7 +571,7 @@
   {
     "directoryName": "figma",
     "displayName": "figma",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\figma",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\figma",
     "importedAt": 1789784458940,
     "importedSkillNames": [
       "figma-code-connect",
@@ -591,7 +591,7 @@
     ],
     "lastCheckedAt": 1789784458950,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\figma",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\figma",
     "skillPaths": [
       "11.0.0/skills/figma-code-connect/SKILL.md",
       "11.0.0/skills/figma-create-new-file/SKILL.md",
@@ -658,7 +658,7 @@
   {
     "directoryName": "google-drive",
     "displayName": "google-drive",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\google-drive",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\google-drive",
     "importedAt": 1789784460522,
     "importedSkillNames": [
       "google-docs",
@@ -669,7 +669,7 @@
     ],
     "lastCheckedAt": 1789784460533,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\google-drive",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\google-drive",
     "skillPaths": [
       "0.1.16/skills/google-docs/SKILL.md",
       "0.1.16/skills/google-drive-comments/SKILL.md",
@@ -683,7 +683,7 @@
   {
     "directoryName": "hugging-face",
     "displayName": "hugging-face",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\hugging-face",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\hugging-face",
     "importedAt": 1789784461371,
     "importedSkillNames": [
       "hf-cli",
@@ -700,7 +700,7 @@
     ],
     "lastCheckedAt": 1789784461383,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\hugging-face",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\hugging-face",
     "skillPaths": [
       "1.0.0/skills/cli/SKILL.md",
       "1.0.0/skills/community-evals/SKILL.md",
@@ -728,7 +728,7 @@
   {
     "directoryName": "hyperframes",
     "displayName": "hyperframes",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\hyperframes",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\hyperframes",
     "importedAt": 1789784462201,
     "importedSkillNames": [
       "gsap",
@@ -739,7 +739,7 @@
     ],
     "lastCheckedAt": 1789784462213,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\hyperframes",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\hyperframes",
     "skillPaths": [
       "0.1.2/skills/gsap/SKILL.md",
       "0.1.2/skills/hyperframes-cli/SKILL.md",
@@ -753,7 +753,7 @@
   {
     "directoryName": "neon-postgres",
     "displayName": "neon-postgres",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\neon-postgres",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\neon-postgres",
     "importedAt": 1789784462739,
     "importedSkillNames": [
       "neon-ai-gateway",
@@ -764,7 +764,7 @@
     ],
     "lastCheckedAt": 1789784462754,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\neon-postgres",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\neon-postgres",
     "skillPaths": [
       "2.0.0/skills/neon-ai-gateway/SKILL.md",
       "2.0.0/skills/neon-functions/SKILL.md",
@@ -778,7 +778,7 @@
   {
     "directoryName": "netlify",
     "displayName": "netlify",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\netlify",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\netlify",
     "importedAt": 1789784463431,
     "importedSkillNames": [
       "netlify-ai-gateway",
@@ -796,7 +796,7 @@
     ],
     "lastCheckedAt": 1789784463447,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\netlify",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\netlify",
     "skillPaths": [
       "1.0.0/skills/netlify-ai-gateway/SKILL.md",
       "1.0.0/skills/netlify-blobs/SKILL.md",
@@ -817,7 +817,7 @@
   {
     "directoryName": "notion",
     "displayName": "notion",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\notion",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\notion",
     "importedAt": 1789784464323,
     "importedSkillNames": [
       "notion-knowledge-capture",
@@ -827,7 +827,7 @@
     ],
     "lastCheckedAt": 1789784464337,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\notion",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\notion",
     "skillPaths": [
       "0.1.8/skills/notion-knowledge-capture/SKILL.md",
       "0.1.8/skills/notion-meeting-intelligence/SKILL.md",
@@ -840,7 +840,7 @@
   {
     "directoryName": "openai-developers",
     "displayName": "openai-developers",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\openai-developers",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\openai-developers",
     "importedAt": 1789784464971,
     "importedSkillNames": [
       "agents",
@@ -851,7 +851,7 @@
     ],
     "lastCheckedAt": 1789784464988,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\openai-developers",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\openai-developers",
     "skillPaths": [
       "1.3.0/skills/agents/SKILL.md",
       "1.3.0/skills/build-chatgpt-app/SKILL.md",
@@ -865,7 +865,7 @@
   {
     "directoryName": "openai-templates",
     "displayName": "openai-templates",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates",
     "importedAt": 1789784465570,
     "importedSkillNames": [
       "artifact-template-analytics-dashboard",
@@ -891,7 +891,7 @@
     ],
     "lastCheckedAt": 1789784465587,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\openai-templates",
     "skillPaths": [
       "0.1.1/skills/artifact-template-analytics-dashboard/SKILL.md",
       "0.1.1/skills/artifact-template-business-review/SKILL.md",
@@ -920,7 +920,7 @@
   {
     "directoryName": "pixverse",
     "displayName": "pixverse",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\pixverse",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\pixverse",
     "importedAt": 1789784466483,
     "importedSkillNames": [
       "pixverse-agent-canvas",
@@ -964,7 +964,7 @@
     ],
     "lastCheckedAt": 1789784466501,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\pixverse",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\pixverse",
     "skillPaths": [
       "1.3.0/skills-internal/pixverse-agent-canvas/SKILL.md",
       "1.3.0/skills-internal/pixverse-agent-gateway/SKILL.md",
@@ -1037,14 +1037,14 @@
   {
     "directoryName": "plugin-management",
     "displayName": "plugin-management",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\plugin-management",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\plugin-management",
     "importedAt": 1789784467080,
     "importedSkillNames": [
       "plugin-management"
     ],
     "lastCheckedAt": 1789784467101,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\plugin-management",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\plugin-management",
     "skillPaths": [
       "0.1.0/skills/plugin-management/SKILL.md"
     ],
@@ -1054,7 +1054,7 @@
   {
     "directoryName": "remotion",
     "displayName": "remotion",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\remotion",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\remotion",
     "importedAt": 1789784468230,
     "importedSkillNames": [
       "remotion-best-practices",
@@ -1072,7 +1072,7 @@
     ],
     "lastCheckedAt": 1789784468249,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\remotion",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\remotion",
     "skillPaths": [
       "1.0.7/skills/remotion-best-practices/SKILL.md",
       "1.0.7/skills/remotion-captions/SKILL.md",
@@ -1093,7 +1093,7 @@
   {
     "directoryName": "supabase",
     "displayName": "supabase",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\supabase",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\supabase",
     "importedAt": 1789784469068,
     "importedSkillNames": [
       "supabase-postgres-best-practices",
@@ -1101,7 +1101,7 @@
     ],
     "lastCheckedAt": 1789784469088,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\supabase",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\supabase",
     "skillPaths": [
       "1.0.0/skills/supabase-postgres-best-practices/SKILL.md",
       "1.0.0/skills/supabase/SKILL.md"
@@ -1112,7 +1112,7 @@
   {
     "directoryName": "vercel",
     "displayName": "vercel",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\vercel",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated-remote\\vercel",
     "importedAt": 1789784470203,
     "importedSkillNames": [
       "agent-browser-verify",
@@ -1172,7 +1172,7 @@
     ],
     "lastCheckedAt": 1789784470225,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated-remote\\vercel",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated-remote\\vercel",
     "skillPaths": [
       "0.21.4/skills/agent-browser-verify/SKILL.md",
       "0.21.4/skills/agent-browser/SKILL.md",
@@ -1347,7 +1347,7 @@
   {
     "directoryName": "build-web-apps",
     "displayName": "build-web-apps",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\build-web-apps",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\build-web-apps",
     "importedAt": 1789784471330,
     "importedSkillNames": [
       "frontend-app-builder",
@@ -1359,7 +1359,7 @@
     ],
     "lastCheckedAt": 1789784471364,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\build-web-apps",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\build-web-apps",
     "skillPaths": [
       "2f1a8948/skills/frontend-app-builder/SKILL.md",
       "2f1a8948/skills/frontend-testing-debugging/SKILL.md",
@@ -1376,7 +1376,7 @@
   {
     "directoryName": "figma",
     "displayName": "figma",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\figma",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\figma",
     "importedAt": 1789784472474,
     "importedSkillNames": [
       "figma-code-connect-2",
@@ -1393,7 +1393,7 @@
     ],
     "lastCheckedAt": 1789784472500,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\figma",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\figma",
     "skillPaths": [
       "2f1a8948/skills/figma-code-connect/SKILL.md",
       "2f1a8948/skills/figma-create-new-file/SKILL.md",
@@ -1455,7 +1455,7 @@
   {
     "directoryName": "github",
     "displayName": "github",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\github",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\github",
     "importedAt": 1789784473352,
     "importedSkillNames": [
       "gh-address-comments",
@@ -1465,7 +1465,7 @@
     ],
     "lastCheckedAt": 1789784473381,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\github",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\github",
     "skillPaths": [
       "2f1a8948/skills/gh-address-comments/SKILL.md",
       "2f1a8948/skills/gh-fix-ci/SKILL.md",
@@ -1478,7 +1478,7 @@
   {
     "directoryName": "hugging-face",
     "displayName": "hugging-face",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\hugging-face",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\hugging-face",
     "importedAt": 1789784474564,
     "importedSkillNames": [
       "hf-cli-2",
@@ -1495,7 +1495,7 @@
     ],
     "lastCheckedAt": 1789784474591,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\hugging-face",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\hugging-face",
     "skillPaths": [
       "2f1a8948/skills/cli/SKILL.md",
       "2f1a8948/skills/community-evals/SKILL.md",
@@ -1523,7 +1523,7 @@
   {
     "directoryName": "netlify",
     "displayName": "netlify",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\netlify",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\netlify",
     "importedAt": 1789784475703,
     "importedSkillNames": [
       "netlify-ai-gateway-2",
@@ -1541,7 +1541,7 @@
     ],
     "lastCheckedAt": 1789784475734,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\netlify",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\netlify",
     "skillPaths": [
       "2f1a8948/skills/netlify-ai-gateway/SKILL.md",
       "2f1a8948/skills/netlify-blobs/SKILL.md",
@@ -1562,7 +1562,7 @@
   {
     "directoryName": "render",
     "displayName": "render",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\render",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\render",
     "importedAt": 1789784477354,
     "importedSkillNames": [
       "render-background-workers",
@@ -1589,7 +1589,7 @@
     ],
     "lastCheckedAt": 1789784477385,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\render",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\render",
     "skillPaths": [
       "2f1a8948/skills/render-background-workers/SKILL.md",
       "2f1a8948/skills/render-blueprints/SKILL.md",
@@ -1634,7 +1634,7 @@
   {
     "directoryName": "vercel",
     "displayName": "vercel",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\vercel",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-curated\\vercel",
     "importedAt": 1789784479007,
     "importedSkillNames": [
       "agent-browser-verify-2",
@@ -1687,7 +1687,7 @@
     ],
     "lastCheckedAt": 1789784479041,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-curated\\vercel",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-curated\\vercel",
     "skillPaths": [
       "2f1a8948/skills/agent-browser-verify/SKILL.md",
       "2f1a8948/skills/agent-browser/SKILL.md",
@@ -1760,14 +1760,14 @@
   {
     "directoryName": "documents",
     "displayName": "documents",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\documents",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-primary-runtime\\documents",
     "importedAt": 1789784480184,
     "importedSkillNames": [
       "documents"
     ],
     "lastCheckedAt": 1789784480218,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\documents",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-primary-runtime\\documents",
     "skillPaths": [
       "26.905.11957/skills/documents/SKILL.md"
     ],
@@ -1777,14 +1777,14 @@
   {
     "directoryName": "pdf",
     "displayName": "pdf",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\pdf",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-primary-runtime\\pdf",
     "importedAt": 1789784481153,
     "importedSkillNames": [
       "pdf"
     ],
     "lastCheckedAt": 1789784481189,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\pdf",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-primary-runtime\\pdf",
     "skillPaths": [
       "26.905.11957/skills/pdf/SKILL.md"
     ],
@@ -1794,14 +1794,14 @@
   {
     "directoryName": "presentations",
     "displayName": "presentations",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\presentations",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-primary-runtime\\presentations",
     "importedAt": 1789784482329,
     "importedSkillNames": [
       "presentations"
     ],
     "lastCheckedAt": 1789784482362,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\presentations",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-primary-runtime\\presentations",
     "skillPaths": [
       "26.905.11957/skills/presentations/SKILL.md"
     ],
@@ -1811,7 +1811,7 @@
   {
     "directoryName": "spreadsheets",
     "displayName": "spreadsheets",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets",
     "importedAt": 1789784483487,
     "importedSkillNames": [
       "excel-live-control",
@@ -1819,7 +1819,7 @@
     ],
     "lastCheckedAt": 1789784483527,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-primary-runtime\\spreadsheets",
     "skillPaths": [
       "26.905.11957/skills/excel-live-control/SKILL.md",
       "26.905.11957/skills/spreadsheets/SKILL.md"
@@ -1830,14 +1830,14 @@
   {
     "directoryName": "template-creator",
     "displayName": "template-creator",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\template-creator",
+    "id": "local:~\\.codex\\plugins\\cache\\openai-primary-runtime\\template-creator",
     "importedAt": 1789784484529,
     "importedSkillNames": [
       "template-creator"
     ],
     "lastCheckedAt": 1789784484563,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\plugins\\cache\\openai-primary-runtime\\template-creator",
+    "rootPath": "~\\.codex\\plugins\\cache\\openai-primary-runtime\\template-creator",
     "skillPaths": [
       "26.905.11957/skills/template-creator/SKILL.md"
     ],
@@ -1847,7 +1847,7 @@
   {
     "directoryName": "skills",
     "displayName": "skills",
-    "id": "local:C:\\Users\\HOSAM\\.codex\\skills",
+    "id": "local:~\\.codex\\skills",
     "importedAt": 1789784485553,
     "importedSkillNames": [
       "imagegen",
@@ -1859,7 +1859,7 @@
     ],
     "lastCheckedAt": 1789784485589,
     "provider": "local",
-    "rootPath": "C:\\Users\\HOSAM\\.codex\\skills",
+    "rootPath": "~\\.codex\\skills",
     "skillPaths": [
       ".system/imagegen/SKILL.md",
       ".system/openai-docs/SKILL.md",

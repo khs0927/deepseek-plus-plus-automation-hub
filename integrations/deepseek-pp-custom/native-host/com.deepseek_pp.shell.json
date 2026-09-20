@@ -4,6 +4,7 @@
   "path": "C:\\code\\deepseek-plus-plus-automation-hub\\integrations\\deepseek-pp-custom\\native-host\\shell-mcp-host.bat",
   "type": "stdio",
   "allowed_origins": [
-    "chrome-extension://kdmpkkahkhdmdhfkdihkopikgcocbpbf/"
+    "chrome-extension://kdmpkkahkhdmdhfkdihkopikgcocbpbf/",
+    "chrome-extension://bdmlgeikeeccbcdnmckcplhbjhpoabip/"
   ]
 }
