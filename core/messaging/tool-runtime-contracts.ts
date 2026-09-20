@@ -7,6 +7,10 @@ import type {
   McpCapabilitySettings,
 } from '../mcp/capability-types';
 import type {
+  JevShadowSettings,
+  JevShadowSettingsStatus,
+} from '../mcp/jev-shadow';
+import type {
   BrowserControlSettings,
   BrowserControlState,
   BrowserControlTarget,
@@ -82,6 +86,22 @@ export interface ToolRuntimeCommandContracts {
   UPDATE_MCP_CAPABILITY_SETTINGS: {
     request: DeclaredRuntimeRequest<'UPDATE_MCP_CAPABILITY_SETTINGS'>;
     response: McpCapabilitySettings;
+  };
+  GET_JEV_SHADOW_SETTINGS_STATUS: {
+    request: DeclaredRuntimeRequest<'GET_JEV_SHADOW_SETTINGS_STATUS'>;
+    response: JevShadowSettingsStatus;
+  };
+  UPDATE_JEV_SHADOW_SETTINGS: {
+    request: DeclaredRuntimeRequest<'UPDATE_JEV_SHADOW_SETTINGS'>;
+    response: JevShadowSettings;
+  };
+  SAVE_JEV_SHADOW_API_KEY: {
+    request: DeclaredRuntimeRequest<'SAVE_JEV_SHADOW_API_KEY'>;
+    response: { ok: true; configured: true };
+  };
+  CLEAR_JEV_SHADOW_API_KEY: {
+    request: DeclaredRuntimeRequest<'CLEAR_JEV_SHADOW_API_KEY'>;
+    response: { ok: true; configured: false };
   };
   SET_MCP_CAPABILITY_SERVER_EXPOSURE: {
     request: DeclaredRuntimeRequest<'SET_MCP_CAPABILITY_SERVER_EXPOSURE'>;
