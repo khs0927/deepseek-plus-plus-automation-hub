@@ -119,6 +119,9 @@ function decodeSystemOneRanking(
   const probabilities = requireRecord(route.probabilities, 'response.answers.route.probabilities');
   const confidence = requireProbability(route.confidence, 'response.answers.route.confidence');
   const selectedKey = typeof route.choice === 'string' ? route.choice : null;
+  if (!selectedKey || (selectedKey !== '__none__' && !optionToCandidate.has(selectedKey))) {
+    throw new Error('TypeSafe System One returned an unknown route choice.');
+  }
 
   const ranked = Object.entries(probabilities)
     .filter(([key]) => key !== '__none__' && optionToCandidate.has(key))
@@ -129,10 +132,10 @@ function decodeSystemOneRanking(
     }))
     .sort((left, right) => right.score - left.score);
 
-  const abstainProbability = probabilities.__none__ === undefined
-    ? 0
-    : requireProbability(probabilities.__none__, 'response.answers.route.probabilities.__none__');
-  const abstained = selectedKey === '__none__' || abstainProbability >= confidence;
+  if (probabilities.__none__ !== undefined) {
+    requireProbability(probabilities.__none__, 'response.answers.route.probabilities.__none__');
+  }
+  const abstained = selectedKey === '__none__';
 
   return {
     provider: providerId,
