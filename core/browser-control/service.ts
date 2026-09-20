@@ -2,6 +2,10 @@ import { getBrowserControlSettings, saveBrowserControlSettings } from './setting
 import { BrowserConnection, BrowserControlError } from './cdp';
 import { formatAccessibilitySnapshot } from './snapshot';
 import { readOptionalChromeApi } from '../platform/chrome-api';
+import {
+  decideBrowserActionWithJev,
+  type BrowserJevDecision,
+} from '../decision/browser-action';
 import type {
   BrowserActionResult,
   BrowserControlDependencies,
@@ -192,6 +196,8 @@ export class BrowserControlService {
         return this.closeTab(payload);
       case 'browser_snapshot':
         return this.snapshotAction(settings);
+      case 'browser_fast_step':
+        return this.fastStep(payload, settings);
       case 'browser_click':
         return this.pointAction('click', payload, settings);
       case 'browser_hover':
@@ -358,6 +364,139 @@ export class BrowserControlService {
       output: snapshotToJson(snapshot),
       snapshot,
     };
+  }
+
+  private async fastStep(
+    payload: Record<string, unknown>,
+    settings: BrowserControlSettings,
+  ): Promise<BrowserActionResult> {
+    const goal = requireString(payload, 'goal');
+    const suppliedText = typeof payload.text === 'string' && payload.text.length > 0
+      ? payload.text
+      : undefined;
+    const snapshot = await this.createSnapshot(settings);
+
+    let decision: BrowserJevDecision;
+    try {
+      decision = await decideBrowserActionWithJev(goal, snapshot);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BrowserControlError(
+        'browser_jev_decision_failed',
+        message,
+        { retryable: true },
+      );
+    }
+
+    const action = decision.action;
+    const fastSettings: BrowserControlSettings = {
+      ...settings,
+      includeSnapshotAfterActions: false,
+    };
+
+    if ((action.operation === 'click' || action.operation === 'fill') && !action.uid) {
+      throw new BrowserControlError(
+        'browser_jev_invalid_target',
+        'JEV selected an element action without an observed snapshot uid.',
+      );
+    }
+
+    if (action.operation === 'click') {
+      const result = await this.pointAction('click', { uid: action.uid }, fastSettings);
+      return this.withFastStepDecision(result, decision, settings);
+    }
+
+    if (action.operation === 'fill') {
+      if (suppliedText === undefined) {
+        throw new BrowserControlError(
+          'browser_fast_step_text_required',
+          `JEV selected ${action.name || action.uid} for text input. Call browser_fast_step again with the same goal and explicit text.`,
+          {
+            retryable: true,
+            details: {
+              uid: action.uid,
+              role: action.role ?? null,
+              name: action.name ?? null,
+              decision: browserDecisionToJson(decision),
+            },
+          },
+        );
+      }
+      const result = await this.fill(
+        { uid: action.uid, value: suppliedText },
+        fastSettings,
+      );
+      return this.withFastStepDecision(result, decision, settings);
+    }
+
+    if (action.operation === 'scroll_up' || action.operation === 'scroll_down') {
+      const tabId = await this.ensureTargetTabId(settings);
+      await this.ensureAttached(tabId);
+      const direction = action.operation === 'scroll_up' ? -1 : 1;
+      await this.evaluate(
+        `window.scrollBy(0, ${direction} * Math.max(240, window.innerHeight * 0.75)); true`,
+        { awaitPromise: true },
+      );
+      return this.withFastStepDecision({
+        ok: true,
+        summary: action.operation === 'scroll_up' ? 'Scrolled up' : 'Scrolled down',
+        detail: 'Scrolled the controlled tab by roughly three quarters of the viewport.',
+        output: { tabId, direction: action.operation },
+      }, decision, settings);
+    }
+
+    if (action.operation === 'wait') {
+      await delay(250);
+      return this.withFastStepDecision({
+        ok: true,
+        summary: 'Waited briefly',
+        detail: 'JEV selected a short bounded wait before the next observation.',
+        output: { waitedMs: 250 },
+      }, decision, settings);
+    }
+
+    if (action.operation === 'done') {
+      return {
+        ok: true,
+        summary: 'JEV indicates the browser goal appears complete; independent verification is still required',
+        detail: snapshot.text,
+        output: {
+          decision: browserDecisionToJson(decision),
+          doneCandidate: true,
+          verificationRequired: true,
+          snapshot: snapshotToJson(snapshot),
+        },
+        snapshot,
+      };
+    }
+
+    return {
+      ok: true,
+      summary: 'JEV cannot safely advance the browser goal from the current observation',
+      detail: snapshot.text,
+      output: {
+        decision: browserDecisionToJson(decision),
+        blocked: true,
+        verificationRequired: true,
+        snapshot: snapshotToJson(snapshot),
+      },
+      snapshot,
+    };
+  }
+
+  private async withFastStepDecision(
+    result: BrowserActionResult,
+    decision: BrowserJevDecision,
+    settings: BrowserControlSettings,
+  ): Promise<BrowserActionResult> {
+    const enriched: BrowserActionResult = {
+      ...result,
+      output: {
+        ...asObject(result.output),
+        decision: browserDecisionToJson(decision),
+      },
+    };
+    return this.withOptionalSnapshot(enriched, settings);
   }
 
   private async pointAction(
@@ -1050,6 +1189,19 @@ function snapshotToJson(snapshot: BrowserSnapshotResult): Record<string, unknown
     text: snapshot.text,
     nodeCount: snapshot.nodes.length,
     truncated: snapshot.truncated,
+  };
+}
+
+function browserDecisionToJson(decision: BrowserJevDecision): Record<string, unknown> {
+  return {
+    operation: decision.action.operation,
+    uid: decision.action.uid ?? null,
+    role: decision.action.role ?? null,
+    name: decision.action.name ?? null,
+    confidence: decision.confidence,
+    provider: decision.provider,
+    model: decision.model ?? null,
+    latencyMs: decision.latencyMs,
   };
 }
 

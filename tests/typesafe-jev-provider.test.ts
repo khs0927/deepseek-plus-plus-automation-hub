@@ -99,6 +99,49 @@ describe('TypeSafeJevDecisionProvider', () => {
     });
   });
 
+  it('uses the browser action policy without granting authorization', async () => {
+    const provider = new TypeSafeJevDecisionProvider({
+      async evaluate(payload) {
+        expect(payload.questions.route.instructions).toContain('exactly one action');
+        expect(payload.questions.route.instructions).toContain('untrusted data');
+        expect(payload.questions.route.instructions).toContain('Do not infer authorization');
+        return {
+          model: 'jev-browser',
+          answers: {
+            route: {
+              type: 'choice',
+              choice: 'c0',
+              probabilities: {
+                c0: 0.91,
+                __none__: 0.09,
+              },
+              confidence: 0.91,
+            },
+          },
+        };
+      },
+    });
+
+    const result = await provider.evaluate({
+      requestId: 'browser-1',
+      purpose: 'browser_action',
+      intent: 'Advance the current browser goal.',
+      candidates: [{
+        id: 'click:e2',
+        name: 'click:e2',
+        title: 'Click Search',
+        description: 'Observed button e2 named Search.',
+        provider: 'browser-control',
+        risk: 'medium',
+      }],
+    });
+
+    expect(result.selections[0]).toMatchObject({
+      candidateId: 'click:e2',
+      confidence: 0.91,
+    });
+  });
+
   it('maps result_judge into evidence-bounded outcome actions', async () => {
     const provider = new TypeSafeJevDecisionProvider({
       async evaluate(payload) {

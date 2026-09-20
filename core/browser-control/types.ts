@@ -13,6 +13,7 @@ export const BROWSER_CONTROL_TOOL_NAMES = [
   'browser_select_tab',
   'browser_close_tab',
   'browser_snapshot',
+  'browser_fast_step',
   'browser_click',
   'browser_hover',
   'browser_fill',

@@ -54,6 +54,10 @@ const COPY_KEYS: Record<BrowserControlToolName, {
     title: 'tool.browser.snapshotTitle',
     description: 'tool.browser.snapshotDescription',
   },
+  browser_fast_step: {
+    title: 'tool.browser.fastStepTitle',
+    description: 'tool.browser.fastStepDescription',
+  },
   browser_click: {
     title: 'tool.browser.clickTitle',
     description: 'tool.browser.clickDescription',
@@ -204,6 +208,17 @@ function schemaForTool(name: BrowserControlToolName): ToolDescriptor['inputSchem
       return objectSchema({
         tabId: { type: 'integer', description: 'Optional Chrome tab id. Defaults to current target.' },
       });
+    case 'browser_fast_step':
+      return objectSchema({
+        goal: {
+          type: 'string',
+          description: 'Natural-language browser goal. JEV must be active and chooses exactly one observed operation/target.',
+        },
+        text: {
+          type: 'string',
+          description: 'Optional text to use only if JEV selects a text-like field. Text is never invented by the JEV action selector.',
+        },
+      }, ['goal']);
     case 'browser_click':
     case 'browser_hover':
       return objectSchema({
@@ -288,6 +303,7 @@ function riskForTool(name: BrowserControlToolName): ToolDescriptor['execution'][
   }
   if (
     name === 'browser_navigate' ||
+    name === 'browser_fast_step' ||
     name === 'browser_click' ||
     name === 'browser_fill' ||
     name === 'browser_fill_form' ||
@@ -303,6 +319,7 @@ function riskForTool(name: BrowserControlToolName): ToolDescriptor['execution'][
 function timeoutForTool(name: BrowserControlToolName): number {
   if (name === 'browser_wait_for') return 65_000;
   if (name === 'browser_snapshot') return 15_000;
+  if (name === 'browser_fast_step') return 8_000;
   if (name === 'browser_navigate') return 20_000;
   return 10_000;
 }
