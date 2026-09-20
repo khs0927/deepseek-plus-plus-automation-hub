@@ -6,6 +6,35 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function getJson(url, timeoutMs = 2000) {
+  return new Promise(resolve => {
+    const req = http.get(url, { timeout: timeoutMs }, res => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => { body += chunk; });
+      res.on('end', () => {
+        try {
+          resolve(res.statusCode === 200 ? JSON.parse(body) : null);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
+    req.on('timeout', () => {
+      req.destroy();
+      resolve(null);
+    });
+    req.on('error', () => resolve(null));
+  });
+}
+
+async function checkSubagentHealth() {
+  const result = await getJson('http://127.0.0.1:8932/health');
+  return result?.ok === true && result?.service === 'deepseek-subagent-manager'
+    ? result
+    : null;
+}
+
 function checkPort(port, host = '127.0.0.1') {
   return new Promise(resolve => {
     const socket = new net.Socket();
@@ -54,7 +83,12 @@ async function main() {
   console.log('\n[3/3] Subagent Server & Watchdog Daemon (포트 8932) 확인 중...');
   const subagentActive = await checkPort(8932);
   if (subagentActive) {
-    console.log('  -> [OK] Subagent Server & Watchdog Daemon이 이미 백그라운드에서 실행 중입니다 (포트 8932).');
+    const health = await checkSubagentHealth();
+    if (health) {
+      console.log(`  -> [OK] Subagent Manager 확인 완료. active=${health.stats?.active ?? 0}, queued=${health.stats?.queued ?? 0}, max=${health.stats?.maxConcurrent ?? 'unknown'}.`);
+    } else {
+      console.log('  -> [WARNING] 포트 8932는 열려 있지만 DeepSeek++ Subagent Manager health 응답이 아닙니다.');
+    }
   } else {
     console.log('  -> Subagent Server 백그라운드 구동 시작...');
     const serverPath = path.join(__dirname, 'subagent-mcp', 'server.js');
@@ -68,8 +102,11 @@ async function main() {
     // Wait a bit and verify
     await new Promise(r => setTimeout(r, 1500));
     const nowActive = await checkPort(8932);
-    if (nowActive) {
-      console.log('  -> [OK] Subagent Server & Watchdog Daemon 구동 완료 (포트 8932 활성).');
+    const health = nowActive ? await checkSubagentHealth() : null;
+    if (health) {
+      console.log(`  -> [OK] Subagent Manager 구동 및 health 검증 완료. active=${health.stats?.active ?? 0}, queued=${health.stats?.queued ?? 0}, max=${health.stats?.maxConcurrent ?? 'unknown'}.`);
+    } else if (nowActive) {
+      console.log('  -> [WARNING] 8932 포트는 열렸지만 Subagent Manager health 검증에 실패했습니다.');
     } else {
       console.log('  -> [WARNING] 서버 구동 신호를 보냈으나 아직 8932 포트 대기 중입니다.');
     }

@@ -17,7 +17,7 @@
       "lastConnectedAt": 1789789653247,
       "lastError": null,
       "limits": {
-        "maxResultBytes": 64000,
+        "maxResultBytes": 128000,
         "maxToolCount": 128
       },
       "secrets": [],
@@ -25,7 +25,7 @@
       "timeouts": {
         "connectMs": 10000,
         "discoveryMs": 20000,
-        "requestMs": 60000
+        "requestMs": 180000
       },
       "transport": {
         "args": [],
@@ -14619,7 +14619,7 @@
           "title": "Configure Watchdog"
         }
       ],
-      "expiresAt": 1789876053247,
+      "expiresAt": 0,
       "health": {
         "checkedAt": 1789789653247,
         "error": null,
