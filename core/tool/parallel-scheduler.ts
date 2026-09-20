@@ -1,4 +1,5 @@
 import type { ToolCall, ToolDescriptor } from './types';
+import { readBoolean, readCapabilityMetadata } from './capability-metadata';
 
 export const DEFAULT_PARALLEL_TOOL_CONCURRENCY = 4;
 export const MAX_PARALLEL_TOOL_CONCURRENCY = 8;
@@ -84,15 +85,39 @@ export function planToolCallExecution(
 
   const flushParallel = (): void => {
     if (pendingParallel.length === 0) return;
-    for (let index = 0; index < pendingParallel.length; index += normalizedConcurrency) {
-      const chunk = pendingParallel.slice(index, index + normalizedConcurrency);
+
+    let chunk: number[] = [];
+    let heldLocks = new Set<string>();
+
+    const pushChunk = (): void => {
+      if (chunk.length === 0) return;
       batches.push({
         mode: chunk.length > 1 ? 'parallel' : 'serial',
-        callIndexes: chunk,
+        callIndexes: [...chunk],
       });
       if (chunk.length > 1) parallelCallCount += chunk.length;
       else serialCallCount += 1;
+      chunk = [];
+      heldLocks = new Set<string>();
+    };
+
+    for (const callIndex of pendingParallel) {
+      const call = calls[callIndex]!;
+      const descriptor = resolveDescriptor(call, descriptorMap);
+      const resourceLocks = descriptor
+        ? readCapabilityMetadata(descriptor).resourceLocks
+        : [];
+      const conflicts = resourceLocks.some((lock) => heldLocks.has(lock));
+
+      if (chunk.length >= normalizedConcurrency || conflicts) {
+        pushChunk();
+      }
+
+      chunk.push(callIndex);
+      for (const lock of resourceLocks) heldLocks.add(lock);
     }
+
+    pushChunk();
     pendingParallel = [];
   };
 
@@ -172,10 +197,37 @@ export function isParallelSafeMcpDescriptor(descriptor: ToolDescriptor): boolean
   if (descriptor.execution.risk !== 'low') return false;
 
   const annotations = descriptor.annotations ?? {};
-  if (readBooleanAnnotation(annotations, ['destructiveHint', 'destructive', 'isDestructive']) === true) {
+  const metadata = readCapabilityMetadata(descriptor);
+
+  if (
+    readBoolean(
+      annotations,
+      ['destructiveHint', 'destructive', 'isDestructive'],
+    ) === true
+  ) {
     return false;
   }
-  if (readBooleanAnnotation(annotations, ['readOnlyHint', 'readOnly', 'readonly']) === true) {
+  if (metadata.requiresApproval === true) return false;
+  if (metadata.parallelSafe === false) return false;
+  if (metadata.dependencies.length > 0) return false;
+  if (
+    metadata.effect === 'write' ||
+    metadata.effect === 'external_side_effect'
+  ) {
+    return false;
+  }
+
+  if (
+    readBoolean(annotations, ['readOnlyHint', 'readOnly', 'readonly']) === true
+  ) {
+    return true;
+  }
+
+  if (
+    (metadata.effect === 'read' || metadata.effect === 'compute') &&
+    metadata.parallelSafe === true &&
+    metadata.idempotent === true
+  ) {
     return true;
   }
 
@@ -211,26 +263,6 @@ function resolveDescriptor(
   }
   if (call.provider?.id) {
     return lookup.get(`provider:${call.provider.id}:name:${call.name}`) ?? null;
-  }
-  return null;
-}
-
-function readBooleanAnnotation(
-  annotations: Readonly<Record<string, string>>,
-  keys: readonly string[],
-): boolean | null {
-  for (const key of keys) {
-    const raw = annotations[key];
-    if (raw === undefined) continue;
-    const normalized = raw.trim().toLowerCase();
-    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
-    if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
-    try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed === 'boolean') return parsed;
-    } catch {
-      // Ignore non-JSON annotation values.
-    }
   }
   return null;
 }
