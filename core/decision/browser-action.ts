@@ -54,7 +54,7 @@ export interface BrowserJevDecision {
   latencyMs: number;
 }
 
-interface BrowserActionCandidate {
+export interface BrowserActionCandidate {
   id: string;
   action: BrowserJevAction;
   title: string;
