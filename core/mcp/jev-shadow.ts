@@ -14,6 +14,13 @@ export interface JevShadowSettings {
   maxCandidates: number;
 }
 
+export type JevShadowSettingsPatch = Partial<Omit<JevShadowSettings, 'version'>>;
+
+export interface JevShadowSettingsStatus {
+  settings: JevShadowSettings;
+  apiKeyConfigured: boolean;
+}
+
 export const DEFAULT_JEV_SHADOW_SETTINGS: JevShadowSettings = Object.freeze({
   version: JEV_SHADOW_SETTINGS_VERSION,
   enabled: false,
@@ -83,7 +90,7 @@ export async function getJevShadowSettings(): Promise<JevShadowSettings> {
 }
 
 export async function updateJevShadowSettings(
-  patch: Partial<Omit<JevShadowSettings, 'version'>>,
+  patch: JevShadowSettingsPatch,
 ): Promise<JevShadowSettings> {
   const current = await getJevShadowSettings();
   const next = decodeJevShadowSettings({
@@ -136,6 +143,18 @@ export function decodeJevShadowSettings(value: unknown): JevShadowSettings {
 export async function getJevShadowApiKey(): Promise<string | null> {
   const data = await chrome.storage.local.get(JEV_SHADOW_API_KEY_STORAGE_KEY) as Record<string, unknown>;
   return normalizeApiKey(data[JEV_SHADOW_API_KEY_STORAGE_KEY]);
+}
+
+export async function hasJevShadowApiKey(): Promise<boolean> {
+  return (await getJevShadowApiKey()) !== null;
+}
+
+export async function getJevShadowSettingsStatus(): Promise<JevShadowSettingsStatus> {
+  const [settings, apiKeyConfigured] = await Promise.all([
+    getJevShadowSettings(),
+    hasJevShadowApiKey(),
+  ]);
+  return { settings, apiKeyConfigured };
 }
 
 export async function saveJevShadowApiKey(apiKey: string): Promise<void> {
