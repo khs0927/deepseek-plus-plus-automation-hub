@@ -54,10 +54,6 @@ async function routeSubagentCallInternal(
     return input.call;
   }
 
-  const availability = await readEngineAvailability(input.signal);
-  const engines = availableEngines(availability);
-  if (engines.length < 2) return input.call;
-
   const payload = isPlainRecord(input.call.payload)
     ? input.call.payload
     : null;
@@ -66,6 +62,9 @@ async function routeSubagentCallInternal(
   if (toolName === 'invoke_subagent') {
     const requested = readEngine(payload.engine);
     if (requested !== 'auto') return input.call;
+    const availability = await readEngineAvailability(input.signal);
+    const engines = availableEngines(availability);
+    if (engines.length < 2) return input.call;
     const routed = await routeOneTaskEngine({
       role: stringValue(payload.role) || 'General Assistant',
       task: stringValue(payload.task),
@@ -83,6 +82,14 @@ async function routeSubagentCallInternal(
   if (tasks.length === 0 || tasks.length > MAX_BATCH_AGENT_ROUTE_TASKS) {
     return input.call;
   }
+  const hasAutoTask = tasks.some((entry) => (
+    isPlainRecord(entry) && readEngine(entry.engine) === 'auto'
+  ));
+  if (!hasAutoTask) return input.call;
+
+  const availability = await readEngineAvailability(input.signal);
+  const engines = availableEngines(availability);
+  if (engines.length < 2) return input.call;
 
   let changed = false;
   const routedTasks = await Promise.all(tasks.map(async (entry) => {
