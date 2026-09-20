@@ -20,6 +20,7 @@ import {
   resolveMcpCapabilityLease,
 } from './capability-lease';
 import { isExecutableMcpDescriptor, rankMcpCapabilityDescriptors } from './capability-projection';
+import { runMcpDiscoveryJevShadow } from './jev-shadow';
 
 export {
   MCP_CAPABILITY_OPERATIONS,
@@ -245,6 +246,11 @@ async function discoverMcpCapabilities(
     query,
   );
   const selected = targets.slice(0, limit);
+  await runMcpDiscoveryJevShadow({
+    query,
+    candidates: targets,
+    lexicalSelectedIds: selected.map((candidate) => candidate.id),
+  });
   const issued = await issueMcpCapabilityLeases({
     owner: context.capabilityScope!,
     descriptors: selected,
