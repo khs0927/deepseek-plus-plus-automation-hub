@@ -9,6 +9,9 @@ import type {
   McpCapabilitySettingsPatch,
 } from './mcp/capability-types';
 import type {
+  JevShadowSettingsPatch,
+} from './mcp/jev-shadow';
+import type {
   CurrentDeepSeekConversation,
   ProjectContextCreateInput,
   ProjectContextState,
@@ -591,6 +594,10 @@ export type MessageAction =
   | { type: 'GET_MCP_SERVERS' }
   | { type: 'GET_MCP_CAPABILITY_SETTINGS' }
   | { type: 'UPDATE_MCP_CAPABILITY_SETTINGS'; payload: McpCapabilitySettingsPatch }
+  | { type: 'GET_JEV_SHADOW_SETTINGS_STATUS' }
+  | { type: 'UPDATE_JEV_SHADOW_SETTINGS'; payload: JevShadowSettingsPatch }
+  | { type: 'SAVE_JEV_SHADOW_API_KEY'; payload: { apiKey: string } }
+  | { type: 'CLEAR_JEV_SHADOW_API_KEY' }
   | {
     type: 'SET_MCP_CAPABILITY_SERVER_EXPOSURE';
     payload: {
