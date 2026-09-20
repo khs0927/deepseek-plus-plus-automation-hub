@@ -99,6 +99,30 @@ export const TOOL_RUNTIME_PAYLOAD_DECODERS: ToolRuntimePayloadDecoderMap = {
     }
     return typedPayload<'UPDATE_MCP_CAPABILITY_SETTINGS'>(payload);
   },
+  UPDATE_JEV_SHADOW_SETTINGS(value) {
+    const payload = recordValue(value, 'UPDATE_JEV_SHADOW_SETTINGS.payload');
+    assertOnlyKeys(
+      payload,
+      ['enabled', 'model', 'timeoutMs', 'maxCandidates'],
+      'UPDATE_JEV_SHADOW_SETTINGS.payload',
+    );
+    optionalBoolean(payload.enabled, 'UPDATE_JEV_SHADOW_SETTINGS.payload.enabled');
+    optionalString(payload.model, 'UPDATE_JEV_SHADOW_SETTINGS.payload.model');
+    if (payload.timeoutMs !== undefined) {
+      positiveInteger(payload.timeoutMs, 'UPDATE_JEV_SHADOW_SETTINGS.payload.timeoutMs');
+    }
+    if (payload.maxCandidates !== undefined) {
+      positiveInteger(payload.maxCandidates, 'UPDATE_JEV_SHADOW_SETTINGS.payload.maxCandidates');
+    }
+    return typedPayload<'UPDATE_JEV_SHADOW_SETTINGS'>(payload);
+  },
+  SAVE_JEV_SHADOW_API_KEY(value) {
+    const payload = recordValue(value, 'SAVE_JEV_SHADOW_API_KEY.payload');
+    assertOnlyKeys(payload, ['apiKey'], 'SAVE_JEV_SHADOW_API_KEY.payload');
+    const apiKey = stringValue(payload.apiKey, 'SAVE_JEV_SHADOW_API_KEY.payload.apiKey').trim();
+    if (!apiKey) throw new Error('SAVE_JEV_SHADOW_API_KEY.payload.apiKey must not be empty');
+    return typedPayload<'SAVE_JEV_SHADOW_API_KEY'>({ apiKey });
+  },
   SET_MCP_CAPABILITY_SERVER_EXPOSURE(value) {
     const payload = recordValue(value, 'SET_MCP_CAPABILITY_SERVER_EXPOSURE.payload');
     assertOnlyKeys(payload, ['serverId', 'mode', 'pinnedDescriptorIds'], 'SET_MCP_CAPABILITY_SERVER_EXPOSURE.payload');
