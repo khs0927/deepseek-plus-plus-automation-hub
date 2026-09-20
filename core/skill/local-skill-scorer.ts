@@ -25,6 +25,11 @@ export interface LocalSkillIndex {
   instructions?: string;
 }
 
+export interface RankedLocalSkillCandidate {
+  skill: LocalSkillIndex;
+  score: number;
+}
+
 // Threshold dual-gate: minimum activation score + significant lead gap (prevents "two weak skills competing for activation").
 const ACTIVATION_THRESHOLD = 100;
 const MIN_LEAD_GAP = 50;
@@ -174,24 +179,42 @@ export function scoreLocalSkill(s: LocalSkillIndex, queryNorm: string, queryTerm
   return score;
 }
 
-export function selectImplicitSkill(query: string, skills: LocalSkillIndex[]): LocalSkillIndex | null {
-  if (skills.length === 0) return null;
+export function rankImplicitSkillCandidates(
+  query: string,
+  skills: LocalSkillIndex[],
+  limit = 16,
+): RankedLocalSkillCandidate[] {
+  if (skills.length === 0 || limit <= 0) return [];
   const queryNorm = normalizeSearchText(query);
-  // Generic gate (A4 fix): no longer pre-emptively returns null to block. When a query is composed of <=2 common two-char words,
-  // scoreLocalSkill's isGenericQuery down-weights (rather than zeroes); an exact-name hit (+800) still wins activation, avoiding
-  // killing genuinely applicable Skills.
-  // Tokenize the user query sensibly before scoring: tokenizeFlexible (CJK 2-gram +
-  // ASCII/digit as-is) avoids a whole Chinese sentence being treated as a single token
-  // and then failing to match the scoring-visible fields.
   const queryTerms = tokenizeFlexible(queryNorm);
-  const scored = skills
-    .map((s) => ({ s, score: scoreLocalSkill(s, queryNorm, queryTerms) }))
-    .sort((a, b) => b.score - a.score);
-  const top = scored[0];
-  const second = scored[1];
-  const overThreshold = top.score >= ACTIVATION_THRESHOLD;
+  return skills
+    .map((skill) => ({
+      skill,
+      score: scoreLocalSkill(skill, queryNorm, queryTerms),
+    }))
+    .sort((left, right) => (
+      right.score - left.score ||
+      left.skill.name.localeCompare(right.skill.name)
+    ))
+    .slice(0, Math.max(1, Math.floor(limit)));
+}
+
+export function isImplicitSkillActivationCandidate(
+  candidate: RankedLocalSkillCandidate | undefined,
+): boolean {
+  return Boolean(candidate && candidate.score >= ACTIVATION_THRESHOLD);
+}
+
+export function selectImplicitSkillFromRanking(
+  ranked: readonly RankedLocalSkillCandidate[],
+): LocalSkillIndex | null {
+  const top = ranked[0];
+  if (!isImplicitSkillActivationCandidate(top)) return null;
+  const second = ranked[1];
   const leadOk = !second || top.score >= second.score + MIN_LEAD_GAP;
-  const activated = overThreshold && leadOk;
-  if (!activated) return null;
-  return top.s;
+  return leadOk ? top.skill : null;
+}
+
+export function selectImplicitSkill(query: string, skills: LocalSkillIndex[]): LocalSkillIndex | null {
+  return selectImplicitSkillFromRanking(rankImplicitSkillCandidates(query, skills, skills.length));
 }
