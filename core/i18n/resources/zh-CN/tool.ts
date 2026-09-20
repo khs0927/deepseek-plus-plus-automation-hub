@@ -191,6 +191,8 @@ export const tool = {
     closeTabDescription: '关闭指定标签页，默认关闭当前受控标签页。',
     snapshotTitle: '读取页面快照',
     snapshotDescription: '返回当前页面的 Accessibility Tree 文本快照和可交互元素编号。',
+    fastStepTitle: 'JEV 高速浏览器步骤',
+    fastStepDescription: '使用 JEV 根据当前浏览目标选择且只选择一个安全操作，并绑定到已观察到的 Accessibility Tree 元素。',
     clickTitle: '点击元素',
     clickDescription: '通过 snapshot uid 或 CSS selector 点击页面元素。',
     hoverTitle: '悬停元素',
