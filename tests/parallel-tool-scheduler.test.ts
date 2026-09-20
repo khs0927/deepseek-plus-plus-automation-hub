@@ -93,6 +93,87 @@ describe('parallel MCP tool scheduler', () => {
     await expect(operation).resolves.toEqual(['A', 'B', 'C']);
   });
 
+  it('parallelizes explicitly safe idempotent compute MCP tools', () => {
+    const computeA = descriptor('vectorize', {
+      'dpp.effect': 'compute',
+      'dpp.parallelSafe': 'true',
+      'dpp.idempotent': 'true',
+    });
+    const computeB = descriptor('embed', {
+      'dpp.effect': 'compute',
+      'dpp.parallelSafe': 'true',
+      'dpp.idempotent': 'true',
+    });
+
+    expect(isParallelSafeMcpDescriptor(computeA)).toBe(true);
+    expect(planToolCallExecution(
+      [callFor(computeA), callFor(computeB)],
+      [computeA, computeB],
+      4,
+    ).batches).toEqual([
+      { mode: 'parallel', callIndexes: [0, 1] },
+    ]);
+  });
+
+  it('keeps compute tools serial unless parallelSafe and idempotent are explicit', () => {
+    const compute = descriptor('vectorize', {
+      'dpp.effect': 'compute',
+      'dpp.parallelSafe': 'true',
+      'dpp.idempotent': 'false',
+    });
+    expect(isParallelSafeMcpDescriptor(compute)).toBe(false);
+  });
+
+  it('keeps declared dependencies serial until a DAG executor resolves them', () => {
+    const dependent = descriptor('read_after_index', {
+      readOnlyHint: 'true',
+      'dpp.dependencies': JSON.stringify(['mcp:test:build_index']),
+    });
+    expect(isParallelSafeMcpDescriptor(dependent)).toBe(false);
+  });
+
+  it('splits otherwise-safe calls that share a resource lock', () => {
+    const first = descriptor('read_a', {
+      readOnlyHint: 'true',
+      'dpp.resourceLocks': JSON.stringify(['workspace:alpha']),
+    });
+    const second = descriptor('read_b', {
+      readOnlyHint: 'true',
+      'dpp.resourceLocks': JSON.stringify(['workspace:alpha']),
+    });
+    const third = descriptor('read_c', {
+      readOnlyHint: 'true',
+      'dpp.resourceLocks': JSON.stringify(['workspace:beta']),
+    });
+
+    expect(planToolCallExecution(
+      [callFor(first), callFor(second), callFor(third)],
+      [first, second, third],
+      4,
+    ).batches).toEqual([
+      { mode: 'serial', callIndexes: [0] },
+      { mode: 'parallel', callIndexes: [1, 2] },
+    ]);
+  });
+
+  it('never parallelizes explicit write or external side-effect metadata', () => {
+    const write = descriptor('read_like_name', {
+      readOnlyHint: 'true',
+      'dpp.effect': 'write',
+      'dpp.parallelSafe': 'true',
+      'dpp.idempotent': 'true',
+    });
+    const external = descriptor('status_external', {
+      readOnlyHint: 'true',
+      'dpp.effect': 'external_side_effect',
+      'dpp.parallelSafe': 'true',
+      'dpp.idempotent': 'true',
+    });
+
+    expect(isParallelSafeMcpDescriptor(write)).toBe(false);
+    expect(isParallelSafeMcpDescriptor(external)).toBe(false);
+  });
+
   it('chunks safe calls at the configured concurrency limit', () => {
     const descriptors = Array.from({ length: 5 }, (_, index) => (
       descriptor(`read_${index}`, { readOnlyHint: 'true' })
