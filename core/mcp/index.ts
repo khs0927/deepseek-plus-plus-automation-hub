@@ -77,7 +77,9 @@ export {
   decodeJevShadowSettings,
   getJevShadowApiKey,
   getJevShadowSettings,
+  getJevShadowSettingsStatus,
   getJevShadowTelemetry,
+  hasJevShadowApiKey,
   runMcpDiscoveryJevShadow,
   saveJevShadowApiKey,
   updateJevShadowSettings,
@@ -86,6 +88,8 @@ export {
 export type {
   JevShadowObservationStatus,
   JevShadowSettings,
+  JevShadowSettingsPatch,
+  JevShadowSettingsStatus,
   McpJevShadowObservation,
   RunMcpDiscoveryJevShadowInput,
 } from './jev-shadow';
