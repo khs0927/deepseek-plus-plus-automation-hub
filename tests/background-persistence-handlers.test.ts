@@ -493,6 +493,7 @@ function createSkillDependencies(): SkillRuntimeHandlerDependencies {
     getLocale: vi.fn(() => 'zh-CN' as const),
     getAllSkills: vi.fn(async () => [skill]),
     getSkillLibrary: vi.fn(async () => [skill]),
+    rankImplicitSkill: vi.fn(async () => ({ selection: null, source: 'lexical' as const })),
     getAllSkillSources: vi.fn(async () => []),
     saveSkill: vi.fn(async () => undefined),
     deleteSkill: vi.fn(async () => undefined),
