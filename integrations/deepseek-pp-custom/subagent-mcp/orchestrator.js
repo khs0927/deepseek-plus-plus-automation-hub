@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('node:crypto');
 const { runDeepSeekWebWorker } = require('./engine-deepseek-web');
 const { runGeminiWorker } = require('./engine-gemini');
 const { runGroqWorker } = require('./engine-groq');
@@ -359,8 +360,8 @@ class SubagentOrchestrator {
 }
 
 function createTaskId() {
-  if (typeof crypto?.randomUUID === 'function') {
-    return `subagent-${crypto.randomUUID()}`;
+  if (typeof randomUUID === 'function') {
+    return `subagent-${randomUUID()}`;
   }
   return `subagent-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 }
