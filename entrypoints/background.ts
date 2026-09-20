@@ -82,6 +82,12 @@ import {
   updateMcpCapabilitySettings,
 } from '../core/mcp/capability-settings';
 import { projectMcpCapabilityDescriptorsWithDecision } from '../core/mcp/capability-decision';
+import { configureDecisionRuntime } from '../core/decision/provider';
+import { TypeSafeJevDecisionProvider } from '../core/decision/typesafe-jev-provider';
+import {
+  createNativeTypeSafeSystemOneTransport,
+  getNativeTypeSafeDecisionStatus,
+} from '../core/decision/native-typesafe-transport';
 import {
   authorizeExternalToolPayloadChunk,
   closeToolAuthorization,
@@ -704,6 +710,7 @@ type ActionApi = {
 };
 
 export default defineBackground(() => {
+  void initializeNativeDecisionRuntime();
   void syncLocalRecoveryBarrier.ensureReady().catch(acknowledgeReportedSyncRecoveryFailure);
   enableSidePanelActionClick();
   registerContextMenuClickListener();
@@ -797,6 +804,44 @@ async function ensureAutomationWakeAlarm() {
   await chrome.alarms.create(AUTOMATION_WAKE_ALARM_NAME, {
     periodInMinutes: AUTOMATION_WAKE_INTERVAL_MINUTES,
   });
+}
+
+async function initializeNativeDecisionRuntime(): Promise<void> {
+  configureDecisionRuntime({
+    mode: 'shadow',
+    provider: null,
+  });
+
+  try {
+    const status = await getNativeTypeSafeDecisionStatus();
+    if (!status.configured || status.mode === 'disabled') {
+      configureDecisionRuntime({
+        mode: status.mode,
+        provider: null,
+      });
+      return;
+    }
+
+    configureDecisionRuntime({
+      mode: status.mode,
+      provider: new TypeSafeJevDecisionProvider(
+        createNativeTypeSafeSystemOneTransport(),
+        status.model,
+      ),
+    });
+  } catch (error) {
+    // Native Host and Jev are optional. A missing host, missing environment
+    // configuration, or startup race must never make the released lexical MCP
+    // routing unavailable.
+    configureDecisionRuntime({
+      mode: 'shadow',
+      provider: null,
+    });
+    console.info(
+      '[DeepSeek++] Native Jev decision provider unavailable; lexical MCP ranking remains active.',
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 function enableSidePanelActionClick() {

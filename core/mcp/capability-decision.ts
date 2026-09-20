@@ -42,12 +42,17 @@ export interface McpCapabilityDecisionProjectionInput {
 export async function projectMcpCapabilityDescriptorsWithDecision(
   input: McpCapabilityDecisionProjectionInput,
 ): Promise<McpCapabilityProjection> {
+  const runtime = getDecisionRuntimeConfig();
+  const effectiveSettings = withActiveDecisionExposureDefaults(
+    input.descriptors,
+    input.settings,
+    runtime.mode === 'active' && runtime.provider !== null && input.intent.trim().length > 0,
+  );
   const baseline = projectMcpCapabilityDescriptors({
     descriptors: input.descriptors,
-    settings: input.settings,
+    settings: effectiveSettings,
     intent: input.intent,
   });
-  const runtime = getDecisionRuntimeConfig();
 
   if (runtime.mode === 'disabled' || !runtime.provider || !input.intent.trim()) {
     return baseline;
@@ -55,14 +60,14 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
 
   const adaptive = input.descriptors.filter((descriptor) => (
     isExecutableMcpDescriptor(descriptor) &&
-    getMcpCapabilityServerSettings(input.settings, descriptor.provider.id).mode === 'adaptive'
+    getMcpCapabilityServerSettings(effectiveSettings, descriptor.provider.id).mode === 'adaptive'
   ));
 
   if (adaptive.length < 2) return baseline;
 
   const pinned = new Set(
     adaptive.flatMap((descriptor) => (
-      getMcpCapabilityServerSettings(input.settings, descriptor.provider.id).pinnedDescriptorIds
+      getMcpCapabilityServerSettings(effectiveSettings, descriptor.provider.id).pinnedDescriptorIds
     )),
   );
   const lexical = rankMcpCapabilityDescriptors(adaptive, input.intent, pinned);
@@ -111,7 +116,7 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
 
     return projectMcpCapabilityDescriptors({
       descriptors: input.descriptors,
-      settings: input.settings,
+      settings: effectiveSettings,
       intent: input.intent,
       adaptiveCandidateOrder: selectedIds,
     });
@@ -132,6 +137,37 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
   }
 }
 
+function withActiveDecisionExposureDefaults(
+  descriptors: readonly ToolDescriptor[],
+  settings: McpCapabilitySettings,
+  enabled: boolean,
+): McpCapabilitySettings {
+  if (!enabled) return settings;
+
+  const serverIds = new Set(
+    descriptors
+      .filter((descriptor) => (
+        descriptor.provider.kind === 'mcp' &&
+        descriptor.provider.displayName === 'Subagent Manager' &&
+        !settings.servers[descriptor.provider.id]
+      ))
+      .map((descriptor) => descriptor.provider.id),
+  );
+  if (serverIds.size === 0) return settings;
+
+  const servers = { ...settings.servers };
+  for (const serverId of serverIds) {
+    servers[serverId] = {
+      mode: 'adaptive',
+      pinnedDescriptorIds: [],
+    };
+  }
+  return {
+    ...settings,
+    servers,
+  };
+}
+
 function toDecisionCandidate(descriptor: ToolDescriptor) {
   return {
     id: descriptor.id,
@@ -144,9 +180,24 @@ function toDecisionCandidate(descriptor: ToolDescriptor) {
 }
 
 function sanitizeText(value: string, maxChars: number): string {
-  return value
+  return redactDecisionSecrets(value)
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, maxChars);
+}
+
+function redactDecisionSecrets(value: string): string {
+  return value
+    .replace(
+      /\b(authorization|api[_ -]?key|access[_ -]?token|token|password|passwd|secret)\b\s*[:=]\s*(?:bearer\s+)?[^\s,;]{4,}/gi,
+      '$1=[REDACTED]',
+    )
+    .replace(/\bbearer\s+[A-Za-z0-9._~+\/=:-]{8,}/gi, 'Bearer [REDACTED]')
+    .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '[REDACTED_GITHUB_TOKEN]')
+    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, '[REDACTED_API_KEY]')
+    .replace(
+      /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
+      '[REDACTED_JWT]',
+    );
 }

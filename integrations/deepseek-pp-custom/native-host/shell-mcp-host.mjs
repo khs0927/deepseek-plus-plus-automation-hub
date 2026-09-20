@@ -2,6 +2,7 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TOOL_DEFINITIONS } from './contracts.mjs';
+import { createDecisionMethodHandlers } from './decision-provider.mjs';
 import { createFileToolHandlers } from './file-provider.mjs';
 import { createNativeMessageChannel, NATIVE_EOF } from './framing.mjs';
 import { createHostLogger } from './logger.mjs';
@@ -33,6 +34,9 @@ const router = createNativeRouter({
     createFileToolHandlers({ logLine: logger.logLine }),
     sessionProvider.handlers,
     taskProvider.handlers,
+  ],
+  methodHandlerGroups: [
+    createDecisionMethodHandlers({ logLine: logger.logLine }),
   ],
   logger,
   serverVersion: packageMetadata.version,

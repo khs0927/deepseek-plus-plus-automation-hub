@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 const LOG_META_FILENAME = 'shell-mcp-host.log-meta';
 export const REQUIRED_HOST_RUNTIME_FILES = [
   'contracts.mjs',
+  'decision-provider.mjs',
   'file-provider.mjs',
   'framing.mjs',
   'logger.mjs',

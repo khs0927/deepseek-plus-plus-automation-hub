@@ -131,6 +131,34 @@ describe('Shell Native Host external contract', () => {
     });
   });
 
+  it('keeps decision RPC private from the MCP tool catalog', async () => {
+    const status = await callHost(
+      nativeEnvelope('decision/status', undefined, 'decision-status'),
+      {
+        TYPESAFE_API_KEY: '',
+        TYPESAFE_JEV_MODEL: 'jev-contract',
+        DEEPSEEK_PP_JEV_MODE: 'active',
+      },
+    );
+
+    expect(status).toEqual({
+      jsonrpc: '2.0',
+      id: 'decision-status',
+      result: {
+        configured: false,
+        provider: 'typesafe',
+        model: 'jev-contract',
+        mode: 'active',
+      },
+    });
+
+    const tools = await callHost(nativeEnvelope('tools/list', undefined, 'decision-tools'));
+    expect(tools.result.tools.map((tool: { name: string }) => tool.name))
+      .not.toContain('decision/evaluate');
+    expect(tools.result.tools.map((tool: { name: string }) => tool.name))
+      .not.toContain('decision/status');
+  });
+
   it('rejects future Native envelopes and malformed JSON-RPC with stable errors', async () => {
     const futureEnvelope = {
       ...nativeEnvelope('initialize', {}, 'future'),
@@ -251,8 +279,14 @@ function nativeEnvelope(method: string, params: unknown, id: string) {
   };
 }
 
-async function callHost(envelope: unknown): Promise<any> {
-  const child = spawn(process.execPath, [hostScript], { stdio: ['pipe', 'pipe', 'pipe'] });
+async function callHost(
+  envelope: unknown,
+  envOverrides: Record<string, string> = {},
+): Promise<any> {
+  const child = spawn(process.execPath, [hostScript], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, ...envOverrides },
+  });
   liveChildren.add(child);
   const body = Buffer.from(JSON.stringify(envelope), 'utf8');
   const header = Buffer.alloc(4);
