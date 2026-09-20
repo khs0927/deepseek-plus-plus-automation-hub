@@ -104,6 +104,61 @@ export function createMcpNativeMessagingTransport(server: McpServerConfig): McpP
   };
 }
 
+export interface NativeInternalRequestOptions {
+  nativeHost: string;
+  method: string;
+  params?: Record<string, unknown>;
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+/**
+ * Sends a private JSON-RPC method through the existing Native Messaging host.
+ * These methods are not part of the MCP tool catalog and are never exposed to
+ * the model as executable capabilities.
+ */
+export async function requestNativeInternal<TResult>(
+  options: NativeInternalRequestOptions,
+): Promise<TResult> {
+  throwIfNativeSignalAborted(options.signal);
+  const request: McpJsonRpcRequest<Record<string, unknown> | undefined> = {
+    jsonrpc: '2.0',
+    id: crypto.randomUUID(),
+    method: options.method,
+    ...(options.params ? { params: options.params } : {}),
+  };
+  const envelope: McpNativeEnvelope = {
+    protocol: MCP_NATIVE_ENVELOPE_PROTOCOL,
+    version: MCP_NATIVE_ENVELOPE_VERSION,
+    server: { id: 'deepseek-pp-internal' },
+    message: request,
+  };
+  assertNativePayloadSize(options.nativeHost, envelope);
+  const raw = await sendAndWait(
+    options.nativeHost,
+    envelope,
+    request.id,
+    options.timeoutMs ?? 5_000,
+    options.signal,
+  );
+  const response = normalizeJsonRpcResponse<TResult>(raw, request);
+  if (response.error) {
+    throw new McpTransportError(
+      'mcp_native_internal_rpc_error',
+      response.error.message || `Native internal RPC failed: ${options.method}`,
+      { retryable: response.error.code === -32000 || response.error.code === -32603 },
+    );
+  }
+  if (!('result' in response)) {
+    throw new McpTransportError(
+      'mcp_native_internal_rpc_invalid',
+      `Native internal RPC did not return a result: ${options.method}`,
+      { retryable: true },
+    );
+  }
+  return response.result as TResult;
+}
+
 async function sendNativeMessage<TParams extends Record<string, unknown> | undefined, TResult>(
   server: McpServerConfig,
   message: McpJsonRpcRequest<TParams> | McpJsonRpcNotification,
