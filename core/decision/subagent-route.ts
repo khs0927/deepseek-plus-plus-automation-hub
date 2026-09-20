@@ -203,33 +203,51 @@ function resolveSubagentDescriptor(
   call: ToolCall,
   descriptors: readonly ToolDescriptor[],
 ): ToolDescriptor | null {
+  let candidate: ToolDescriptor | undefined;
   if (call.descriptorId) {
-    const exact = descriptors.find((descriptor) => descriptor.id === call.descriptorId);
-    if (exact) return exact;
+    candidate = descriptors.find((descriptor) => descriptor.id === call.descriptorId);
   }
-  if (call.invocationName) {
-    const exact = descriptors.find(
+  if (!candidate && call.invocationName) {
+    candidate = descriptors.find(
       (descriptor) => descriptor.invocationName === call.invocationName,
     );
-    if (exact) return exact;
   }
-  if (call.provider?.id) {
-    return descriptors.find((descriptor) => (
+  if (!candidate && call.provider?.id) {
+    candidate = descriptors.find((descriptor) => (
       descriptor.provider.id === call.provider?.id &&
       descriptor.name === call.name
-    )) ?? null;
+    ));
   }
-  return null;
+  if (!candidate || !isSubagentProvider(candidate, descriptors)) return null;
+  return candidate;
+}
+
+const SUBAGENT_PROVIDER_SIGNATURE = [
+  'invoke_subagent',
+  'invoke_subagent_batch',
+  'check_subagent_status',
+  'list_subagents',
+  'kill_subagent',
+] as const;
+
+function isSubagentProvider(
+  descriptor: ToolDescriptor,
+  descriptors: readonly ToolDescriptor[],
+): boolean {
+  if (descriptor.provider.kind !== 'mcp') return false;
+  const names = new Set(
+    descriptors
+      .filter((candidate) => (
+        candidate.provider.kind === 'mcp' &&
+        candidate.provider.id === descriptor.provider.id
+      ))
+      .map((candidate) => candidate.annotations?.mcpToolName || candidate.name),
+  );
+  return SUBAGENT_PROVIDER_SIGNATURE.every((name) => names.has(name));
 }
 
 function subagentToolName(descriptor: ToolDescriptor | undefined): string {
-  if (!descriptor) return '';
-  if (
-    descriptor.provider.kind !== 'mcp' ||
-    descriptor.provider.displayName !== 'Subagent Manager'
-  ) {
-    return '';
-  }
+  if (!descriptor || descriptor.provider.kind !== 'mcp') return '';
   return descriptor.annotations?.mcpToolName || descriptor.name;
 }
 
