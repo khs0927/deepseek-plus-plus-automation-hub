@@ -226,6 +226,98 @@ const TOOL_DEFINITIONS = [
     },
     annotations: { operation: 'write', risk: 'medium' },
   },
+  {
+    name: 'local_dir_list',
+    title: 'List Local Directory Contents',
+    description: 'Quickly inspect files and subdirectories within a local folder without starting a shell process. Returns structured JSON including item name, relative path, type (file/directory), size, and last modified time.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Absolute or home-relative local directory path to list.' },
+        recursive: { type: 'boolean', description: 'Whether to list subdirectories recursively. Default is false.' },
+        max_depth: { type: 'integer', minimum: 1, maximum: 10, description: 'Maximum directory recursion depth when recursive is true. Default is 2.' },
+        limit: { type: 'integer', minimum: 1, maximum: 500, description: 'Maximum number of items to return. Default is 200.' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'local_file_search',
+    title: 'Search Local Files by Name or Content',
+    description: 'Fast local file search by file name pattern and/or text content (grep) within a directory without starting a shell process. Safe and lightweight.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Root directory to search within.' },
+        name_pattern: { type: 'string', description: 'Filename glob pattern (e.g. "*.ts", "package.json") or substring.' },
+        content_pattern: { type: 'string', description: 'Regex or text pattern to search within file contents.' },
+        case_sensitive: { type: 'boolean', description: 'Whether content pattern matching is case-sensitive. Default false.' },
+        max_depth: { type: 'integer', minimum: 1, maximum: 10, description: 'Maximum folder search depth. Default 5.' },
+        limit: { type: 'integer', minimum: 1, maximum: 100, description: 'Maximum matching files to return. Default 50.' },
+      },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'task_spawn',
+    title: 'Spawn Background Task',
+    description: 'Launch a long-running command (dev server, watcher, build, or worker) asynchronously in the background so it does not block the shell or other conversations. Returns a task_id.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The shell command to spawn in the background.' },
+        cwd: { type: 'string', description: 'Working directory for the task. Defaults to user home.' },
+        env: { type: 'object', additionalProperties: { type: 'string' }, description: 'Additional environment variables.' },
+      },
+      required: ['command'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'write', risk: 'high' },
+  },
+  {
+    name: 'task_status',
+    title: 'Check Background Task Status and Output',
+    description: 'Check the status (running, exited, killed), exit code, and recent stdout/stderr output of a background task spawned by task_spawn.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID returned by task_spawn.' },
+        offset: { type: 'integer', minimum: 0, description: 'Character offset for incremental stdout/stderr retrieval. Default is 0.' },
+      },
+      required: ['task_id'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'task_kill',
+    title: 'Terminate Background Task',
+    description: 'Terminate a background task and its entire process tree.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Task ID to terminate.' },
+      },
+      required: ['task_id'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'write', risk: 'medium' },
+  },
+  {
+    name: 'task_list',
+    title: 'List All Background Tasks',
+    description: 'List all running and recently finished background tasks.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
 ];
 
 // --- Logging ---

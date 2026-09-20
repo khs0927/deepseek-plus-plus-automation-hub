@@ -13,6 +13,8 @@ export function createFileToolHandlers({ logLine }) {
     { name: 'local_file_stat', handle: createLocalFileStatResult },
     { name: 'local_file_read', handle: createLocalFileReadResult },
     { name: 'local_file_write', handle: args => createLocalFileWriteResult(args, logLine) },
+    { name: 'local_dir_list', handle: createLocalDirListResult },
+    { name: 'local_file_search', handle: createLocalFileSearchResult },
   ];
 }
 
@@ -312,4 +314,212 @@ function toolError(message) {
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function createLocalDirListResult(args) {
+  const inputPath = typeof args?.path === 'string' ? args.path.trim() : '';
+  if (!inputPath) return toolError('path is required and must be a non-empty string.');
+
+  try {
+    const resolvedPath = resolveLocalPath(inputPath);
+    const stat = safeStat(resolvedPath);
+    if (!stat || !stat.isDirectory()) {
+      return toolError(`Path is not a valid directory: ${resolvedPath}`);
+    }
+
+    const recursive = args?.recursive === true;
+    const maxDepth = typeof args?.max_depth === 'number' && args.max_depth >= 1
+      ? Math.min(Math.floor(args.max_depth), 10)
+      : (recursive ? 2 : 1);
+    const limit = typeof args?.limit === 'number' && args.limit >= 1
+      ? Math.min(Math.floor(args.limit), 500)
+      : 200;
+
+    const items = [];
+    let truncated = false;
+
+    function walk(currentDir, currentDepth) {
+      if (items.length >= limit) {
+        truncated = true;
+        return;
+      }
+      const entries = safeReadDirectory(currentDir);
+      for (const entry of entries) {
+        if (items.length >= limit) {
+          truncated = true;
+          return;
+        }
+        if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === '.DS_Store') {
+          continue;
+        }
+        const fullPath = resolve(currentDir, entry.name);
+        const relPath = relative(resolvedPath, fullPath).replace(/\\/g, '/');
+        const entryStat = safeStat(fullPath);
+        const isDir = entry.isDirectory();
+        items.push({
+          name: entry.name,
+          path: relPath,
+          isDirectory: isDir,
+          sizeBytes: entryStat?.size ?? 0,
+          modifiedAt: entryStat?.mtimeMs ?? null,
+        });
+
+        if (isDir && recursive && currentDepth < maxDepth) {
+          walk(fullPath, currentDepth + 1);
+        }
+      }
+    }
+
+    walk(resolvedPath, 1);
+
+    const summary = `Directory listing of ${resolvedPath} (${items.length} items${truncated ? ', truncated' : ''}):\n` +
+      items.map(i => `${i.isDirectory ? '[DIR] ' : '[FILE]'} ${i.path} (${i.isDirectory ? '-' : formatBytes(i.sizeBytes)})`).join('\n');
+
+    return {
+      content: [{ type: 'text', text: summary }],
+      structuredContent: {
+        ok: true,
+        data: {
+          rootPath: resolvedPath,
+          items,
+          total: items.length,
+          truncated,
+        },
+      },
+    };
+  } catch (error) {
+    return toolError(errorMessage(error));
+  }
+}
+
+function createLocalFileSearchResult(args) {
+  const inputPath = typeof args?.path === 'string' ? args.path.trim() : '';
+  if (!inputPath) return toolError('path is required and must be a non-empty string.');
+
+  try {
+    const resolvedPath = resolveLocalPath(inputPath);
+    const stat = safeStat(resolvedPath);
+    if (!stat || !stat.isDirectory()) {
+      return toolError(`Path is not a valid directory: ${resolvedPath}`);
+    }
+
+    const namePattern = typeof args?.name_pattern === 'string' && args.name_pattern.trim()
+      ? args.name_pattern.trim()
+      : null;
+    const contentPattern = typeof args?.content_pattern === 'string' && args.content_pattern.trim()
+      ? args.content_pattern.trim()
+      : null;
+
+    if (!namePattern && !contentPattern) {
+      return toolError('At least one of name_pattern or content_pattern must be provided.');
+    }
+
+    const caseSensitive = args?.case_sensitive === true;
+    const maxDepth = typeof args?.max_depth === 'number' && args.max_depth >= 1
+      ? Math.min(Math.floor(args.max_depth), 10)
+      : 5;
+    const limit = typeof args?.limit === 'number' && args.limit >= 1
+      ? Math.min(Math.floor(args.limit), 100)
+      : 50;
+
+    let nameRegex = null;
+    if (namePattern) {
+      const escaped = namePattern
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+        .replace(/\*/g, '.*')
+        .replace(/\?/g, '.');
+      nameRegex = new RegExp(`^${escaped}$`, caseSensitive ? '' : 'i');
+    }
+
+    let contentRegex = null;
+    if (contentPattern) {
+      try {
+        contentRegex = new RegExp(contentPattern, caseSensitive ? 'm' : 'im');
+      } catch {
+        const escaped = contentPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        contentRegex = new RegExp(escaped, caseSensitive ? 'm' : 'im');
+      }
+    }
+
+    const matches = [];
+    let truncated = false;
+
+    function searchDir(currentDir, currentDepth) {
+      if (matches.length >= limit) {
+        truncated = true;
+        return;
+      }
+      const entries = safeReadDirectory(currentDir);
+      for (const entry of entries) {
+        if (matches.length >= limit) {
+          truncated = true;
+          return;
+        }
+        if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === '.DS_Store') {
+          continue;
+        }
+        const fullPath = resolve(currentDir, entry.name);
+        const relPath = relative(resolvedPath, fullPath).replace(/\\/g, '/');
+
+        if (entry.isDirectory()) {
+          if (currentDepth < maxDepth) {
+            searchDir(fullPath, currentDepth + 1);
+          }
+        } else if (entry.isFile()) {
+          const nameMatches = !nameRegex || nameRegex.test(entry.name);
+          if (!nameMatches) continue;
+
+          if (!contentRegex) {
+            matches.push({ path: relPath, fullPath, snippets: [] });
+          } else {
+            const fStat = safeStat(fullPath);
+            if (fStat && fStat.size <= 2 * 1024 * 1024) {
+              try {
+                const text = readFileSync(fullPath, 'utf8');
+                const lines = text.split(/\r?\n/);
+                const snippets = [];
+                for (let i = 0; i < lines.length; i++) {
+                  if (contentRegex.test(lines[i])) {
+                    snippets.push({ lineNumber: i + 1, line: lines[i].trim().slice(0, 200) });
+                    if (snippets.length >= 3) break;
+                  }
+                }
+                if (snippets.length > 0) {
+                  matches.push({ path: relPath, fullPath, snippets });
+                }
+              } catch {
+                // Ignore binary/unreadable files
+              }
+            }
+          }
+        }
+      }
+    }
+
+    searchDir(resolvedPath, 1);
+
+    const summary = `Found ${matches.length} matching files in ${resolvedPath}${truncated ? ' (truncated)' : ''}:\n` +
+      matches.map(m => {
+        let line = m.path;
+        if (m.snippets && m.snippets.length > 0) {
+          line += '\n' + m.snippets.map(s => `  line ${s.lineNumber}: ${s.line}`).join('\n');
+        }
+        return line;
+      }).join('\n');
+
+    return {
+      content: [{ type: 'text', text: summary }],
+      structuredContent: {
+        ok: true,
+        data: {
+          rootPath: resolvedPath,
+          matches,
+          total: matches.length,
+          truncated,
+        },
+      },
+    };
+  } catch (error) {
+    return toolError(errorMessage(error));
+  }
 }

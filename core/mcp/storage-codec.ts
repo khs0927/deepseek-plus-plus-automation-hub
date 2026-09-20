@@ -234,14 +234,16 @@ function validateToolCache(
       normalized.invocationName = expectedInvocationName;
     }
 
+    // Annotations are origin claims, not derived formatting: a mismatch means
+    // the cached record does not belong to this server/tool (forged cache),
+    // so fail closed instead of healing. Derived id/invocationName above may
+    // still normalize minor formatting differences.
     const annotations = normalized.annotations as Record<string, unknown> | undefined;
-    if (annotations) {
-      if (annotations.mcpServerId !== undefined && annotations.mcpServerId !== serverId) {
-        annotations.mcpServerId = serverId;
-      }
-      if (annotations.mcpToolName !== undefined && annotations.mcpToolName !== name) {
-        annotations.mcpToolName = name;
-      }
+    if (annotations?.mcpServerId !== undefined && annotations.mcpServerId !== serverId) {
+      fail(`${descriptorPath}.annotations.mcpServerId`, 'MCP annotation belongs to a different server.');
+    }
+    if (annotations?.mcpToolName !== undefined && annotations.mcpToolName !== name) {
+      fail(`${descriptorPath}.annotations.mcpToolName`, 'MCP annotation names a different tool.');
     }
     return normalized;
   });

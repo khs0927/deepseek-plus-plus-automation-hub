@@ -13,6 +13,7 @@ import { createNativeRouter } from './router.mjs';
 import { createNativeEnvelopeDispatcher } from './runtime-dispatcher.mjs';
 import { createSessionProvider } from './session-provider.mjs';
 import { createSkillToolHandlers } from './skill-provider.mjs';
+import { createTaskProvider } from './task-provider.mjs';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageMetadata = readShellHostPackageMetadata();
@@ -20,6 +21,7 @@ const logger = createHostLogger();
 const hostEnvironmentReady = Promise.resolve(initializeHostEnvironment(packageRoot, logger.logLine));
 
 const sessionProvider = createSessionProvider({ logLine: logger.logLine });
+const taskProvider = createTaskProvider({ logLine: logger.logLine });
 const router = createNativeRouter({
   toolDefinitions: TOOL_DEFINITIONS,
   toolHandlerGroups: [
@@ -28,6 +30,7 @@ const router = createNativeRouter({
     createPickerToolHandlers(),
     createFileToolHandlers({ logLine: logger.logLine }),
     sessionProvider.handlers,
+    taskProvider.handlers,
   ],
   logger,
   serverVersion: packageMetadata.version,
@@ -48,11 +51,13 @@ async function main() {
   }
   await dispatcher.settle();
   sessionProvider.shutdown();
+  taskProvider.shutdown();
 }
 
 main().catch(error => {
   const message = error instanceof Error ? error.message : String(error);
   logger.logLine(`Fatal: ${message}`);
   sessionProvider.shutdown();
+  taskProvider.shutdown();
   process.exit(1);
 });

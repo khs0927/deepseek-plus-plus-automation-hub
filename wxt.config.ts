@@ -54,7 +54,7 @@ function readPackageVersion(): string {
 export function createManifest(env: ConfigEnv): UserManifest {
   const isFirefox = env.browser === 'firefox';
   const isChromiumTarget = CHROMIUM_BROWSERS.has(env.browser);
-  const basePermissions = ['storage', 'alarms', 'nativeMessaging', 'contextMenus'];
+  const basePermissions = ['storage', 'unlimitedStorage', 'alarms', 'nativeMessaging', 'contextMenus'];
   // identity: required for identity.launchWebAuthFlow (Google Drive / OneDrive OAuth)
   // on every supported PC browser.
   // The providers' fixed API hosts are declared as required host_permissions below

@@ -1,11 +1,12 @@
 import { spawn, exec, execSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
-const MCP_CONFIG_PATH = 'C:/Users/USER/.gemini/config/mcp_config.json';
-const MCP_DIR = 'C:/Users/USER/.gemini/antigravity/mcp';
+const MCP_CONFIG_PATH = join(homedir(), '.gemini/config/mcp_config.json');
+const MCP_DIR = join(homedir(), '.gemini/antigravity/mcp');
 
 let cachedGhToken = null;
 function getGhToken() {

@@ -550,6 +550,14 @@ let currentContentTranslator = createTranslator(DEFAULT_LOCALE);
 let currentToolDescriptors: ToolDescriptor[] = [];
 const toolDescriptorSyncGate = createLatestSyncGate();
 let currentRequestMessageCount = 0;
+interface AgentSessionState {
+  chatSessionId: string;
+  loopId: string;
+  abort: AbortController;
+  modelBackend: InlineAgentModelBackend | null;
+  container: HTMLElement | null;
+}
+const activeAgentSessions = new Map<string, AgentSessionState>();
 let activeAgentAbort: AbortController | null = null;
 let agentRunningToolCount = 0;
 let agentConsoleStartedAt = 0;
@@ -4479,7 +4487,7 @@ async function startInlineAgentIfNeeded(
   // Starting a second loop previously left two agent panels racing in the DOM.
   // Continuation turns are produced by the agent loop itself and are already
   // handled by isInlineAgentResponseComplete above.
-  if (isInlineAgentRunning()) {
+  if (isInlineAgentRunning(complete.chatSessionId)) {
     showContentToast(contentT("content.agent.concurrencyGuard"), "warning");
     return;
   }
@@ -4737,7 +4745,11 @@ function findInlineAgentLiveTarget(
  * user sends a follow-up message while a previous agent is still running
  * (issue #298).
  */
-function isInlineAgentRunning(): boolean {
+function isInlineAgentRunning(chatSessionId?: string | null): boolean {
+  if (chatSessionId) {
+    const session = activeAgentSessions.get(chatSessionId);
+    return session !== undefined && !session.abort.signal.aborted;
+  }
   const controller = activeAgentAbort;
   return controller !== null && !controller.signal.aborted;
 }
@@ -4765,9 +4777,15 @@ function teardownInlineAgentPanel(): void {
   inlineAgentContainerObserver = null;
 }
 
-function stopInlineAgent(): void {
+function stopInlineAgent(chatSessionId?: string | null): void {
   stopAgentConsoleTimer();
   removeAgentStartingElement();
+  const currentSessionId = chatSessionId ?? getCurrentChatSessionId();
+  if (currentSessionId && activeAgentSessions.has(currentSessionId)) {
+    const session = activeAgentSessions.get(currentSessionId)!;
+    session.abort.abort();
+    activeAgentSessions.delete(currentSessionId);
+  }
   const container = inlineAgentContainer;
   updateActiveInlineAgentTrace(
     (trace) => ({
@@ -4815,11 +4833,17 @@ async function startInlineAgentLoop(
   if (!payload.modelBackend) {
     payload.modelBackend = (await getDeepSeekApiKey()) ? "official-api" : "web";
   }
-  // Abort any previously running loop AND tear down its panel synchronously
-  // before mounting the new one. Previously the old panel stayed in the DOM
-  // until the aborted stream settled, so two agent panels briefly raced
-  // (issue #298).
-  if (activeAgentAbort) {
+  // Abort only if there is already a running loop for THIS chat session,
+  // preventing duplicate racing panels within the same conversation (issue #298).
+  // Other conversations continue running concurrently in background.
+  if (payload.chatSessionId && activeAgentSessions.has(payload.chatSessionId)) {
+    const existingSession = activeAgentSessions.get(payload.chatSessionId)!;
+    existingSession.abort.abort();
+    if (existingSession.container && existingSession.container === inlineAgentContainer) {
+      teardownInlineAgentPanel();
+    }
+    activeAgentSessions.delete(payload.chatSessionId);
+  } else if (!payload.chatSessionId && activeAgentAbort) {
     activeAgentAbort.abort();
     teardownInlineAgentPanel();
   }
@@ -4827,6 +4851,16 @@ async function startInlineAgentLoop(
   activeAgentModelBackend = modelBackend;
   const abort = new AbortController();
   activeAgentAbort = abort;
+
+  if (payload.chatSessionId) {
+    activeAgentSessions.set(payload.chatSessionId, {
+      chatSessionId: payload.chatSessionId,
+      loopId: payload.loopId,
+      abort,
+      modelBackend,
+      container: inlineAgentContainer,
+    });
+  }
 
   agentRunningToolCount = payload.toolExecutions.length;
   const authorizationRequestKey = `agent:${payload.loopId}`;
@@ -4853,6 +4887,12 @@ async function startInlineAgentLoop(
       totalTools: payload.toolExecutions.length,
       error: error instanceof Error ? error.message : String(error),
     });
+    if (payload.chatSessionId) {
+      const current = activeAgentSessions.get(payload.chatSessionId);
+      if (current?.abort === abort) {
+        activeAgentSessions.delete(payload.chatSessionId);
+      }
+    }
     if (activeAgentAbort === abort) {
       activeAgentAbort = null;
       activeAgentModelBackend = null;
@@ -4919,6 +4959,12 @@ async function startInlineAgentLoop(
     }
   } finally {
     await closeContentToolAuthorization(authorizationRequestKey);
+    if (payload.chatSessionId) {
+      const current = activeAgentSessions.get(payload.chatSessionId);
+      if (current?.abort === abort) {
+        activeAgentSessions.delete(payload.chatSessionId);
+      }
+    }
     if (activeAgentAbort === abort) {
       activeAgentAbort = null;
       activeAgentModelBackend = null;
