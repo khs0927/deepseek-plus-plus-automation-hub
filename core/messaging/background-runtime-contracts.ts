@@ -53,7 +53,20 @@ type SyncOperationSuccess = {
 export interface BackgroundRuntimeCommandContracts {
   EXPORT_DIAGNOSTIC_LOGS: {
     request: { type: 'EXPORT_DIAGNOSTIC_LOGS' };
-    response: { exportedAt: string; extensionVersion: string; entries: readonly unknown[] };
+    response: {
+      exportedAt: string;
+      extensionVersion: string;
+      entries: readonly unknown[];
+      decision?: {
+        runtime: {
+          mode: 'disabled' | 'shadow' | 'active';
+          provider: string | null;
+          timeoutMs: number;
+        };
+        metrics: unknown;
+        traceCount: number;
+      };
+    };
   };
   RECORD_USAGE_TURN: {
     request: DeclaredRuntimeRequest<'RECORD_USAGE_TURN'>;
