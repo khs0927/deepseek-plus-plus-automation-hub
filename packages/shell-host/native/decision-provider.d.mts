@@ -7,7 +7,7 @@ export interface DecisionStatus {
 
 export interface DecisionProviderOptions {
   env?: Record<string, string | undefined>;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: (input: string, init: RequestInit) => Promise<Response>;
   logLine?: (line: string) => void;
   timeoutMs?: number;
 }
