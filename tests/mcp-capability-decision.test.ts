@@ -109,6 +109,33 @@ describe('MCP capability decision projection', () => {
     });
   });
 
+  it('redacts common secrets before sending intent to an external decision provider', async () => {
+    const alpha = createMcpDescriptor('server-1', 'alpha_search', 'Search project documents.');
+    const beta = createMcpDescriptor('server-1', 'beta_write', 'Write a project document.');
+    const helpers = createMcpCapabilityToolDescriptors('en');
+
+    configureDecisionRuntime({
+      mode: 'shadow',
+      provider: new MockDecisionProvider((request) => {
+        expect(request.intent).not.toContain('super-secret-value');
+        expect(request.intent).not.toContain('ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456');
+        expect(request.intent).toContain('password=[REDACTED]');
+        expect(request.intent).toContain('[REDACTED_GITHUB_TOKEN]');
+        return {
+          provider: 'mock',
+          confidence: 0.90,
+          selections: [{ candidateId: alpha.id, confidence: 0.90 }],
+        };
+      }),
+    });
+
+    await projectMcpCapabilityDescriptorsWithDecision({
+      descriptors: [alpha, beta, ...helpers],
+      settings: createAdaptiveSettings(),
+      intent: 'search docs password=super-secret-value token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ123456',
+    });
+  });
+
   it('can route an adaptive Subagent Manager batch tool through the JEV decision layer', async () => {
     const subagent = createMcpDescriptor(
       'subagent-manager',
