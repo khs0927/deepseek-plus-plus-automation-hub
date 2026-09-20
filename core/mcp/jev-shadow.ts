@@ -188,7 +188,7 @@ export async function runMcpDiscoveryJevShadow(
   }
 
   if (!settings.enabled) {
-    return recordObservation({
+    return {
       at: Date.now(),
       status: 'disabled',
       queryChars: input.query.length,
@@ -196,7 +196,7 @@ export async function runMcpDiscoveryJevShadow(
       lexicalTopIds: [...input.lexicalSelectedIds],
       durationMs: Date.now() - startedAt,
       model: settings.model,
-    });
+    };
   }
 
   let apiKey: string | null;
