@@ -122,7 +122,6 @@ function trace(
 ): DecisionTraceEntry {
   return {
     requestId: crypto.randomUUID(),
-    purpose: overrides.purpose,
     mode: 'active',
     provider: 'mock',
     model: 'test-model',
@@ -134,5 +133,6 @@ function trace(
     applied: false,
     timestamp: new Date().toISOString(),
     ...overrides,
+    purpose: overrides.purpose,
   };
 }
