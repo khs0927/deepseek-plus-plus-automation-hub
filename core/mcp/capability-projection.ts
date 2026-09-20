@@ -22,6 +22,11 @@ export interface McpCapabilityProjectionInput {
   descriptors: readonly ToolDescriptor[];
   settings: McpCapabilitySettings;
   intent: string;
+  /**
+   * Optional semantic ordering supplied by an external decision layer.
+   * This never changes eligibility, authorization or prompt budgets.
+   */
+  adaptiveCandidateOrder?: readonly string[];
 }
 
 /**
@@ -50,6 +55,7 @@ export function projectMcpCapabilityDescriptors(
     pinned,
     input.settings.adaptiveMaxDirectTools,
     input.settings.adaptiveMaxPromptBytes,
+    input.adaptiveCandidateOrder,
   );
   const selectedIds = new Set([...direct, ...selectedAdaptive].map((descriptor) => descriptor.id));
   const hidden = [...onDemand, ...adaptive.filter((descriptor) => !selectedIds.has(descriptor.id))];
@@ -136,16 +142,55 @@ function selectAdaptiveDescriptors(
   pinnedDescriptorIds: ReadonlySet<string>,
   maxTools: number,
   maxBytes: number,
+  adaptiveCandidateOrder?: readonly string[],
 ): ToolDescriptor[] {
   const selected: ToolDescriptor[] = [];
   let consumedBytes = 0;
-  for (const descriptor of rankMcpCapabilityDescriptors(descriptors, intent, pinnedDescriptorIds)) {
+  const lexical = rankMcpCapabilityDescriptors(descriptors, intent, pinnedDescriptorIds);
+  const ranked = applyAdaptiveCandidateOrder(lexical, adaptiveCandidateOrder, pinnedDescriptorIds);
+  for (const descriptor of ranked) {
     const bytes = estimateMcpCapabilityPromptBytes(descriptor);
     if (selected.length >= maxTools || consumedBytes + bytes > maxBytes) continue;
     selected.push(descriptor);
     consumedBytes += bytes;
   }
   return selected;
+}
+
+function applyAdaptiveCandidateOrder(
+  lexical: readonly ToolDescriptor[],
+  adaptiveCandidateOrder: readonly string[] | undefined,
+  pinnedDescriptorIds: ReadonlySet<string>,
+): ToolDescriptor[] {
+  if (!adaptiveCandidateOrder?.length) return [...lexical];
+
+  const byId = new Map(lexical.map((descriptor) => [descriptor.id, descriptor]));
+  const emitted = new Set<string>();
+  const ordered: ToolDescriptor[] = [];
+
+  // Explicit pins remain deterministic policy and cannot be demoted by a
+  // probabilistic decision provider.
+  for (const descriptor of lexical) {
+    if (!pinnedDescriptorIds.has(descriptor.id)) continue;
+    ordered.push(descriptor);
+    emitted.add(descriptor.id);
+  }
+
+  for (const descriptorId of adaptiveCandidateOrder) {
+    const descriptor = byId.get(descriptorId);
+    if (!descriptor || emitted.has(descriptor.id)) continue;
+    ordered.push(descriptor);
+    emitted.add(descriptor.id);
+  }
+
+  // A decision provider may only rank a bounded shortlist. Preserve the
+  // released lexical order for every remaining eligible descriptor.
+  for (const descriptor of lexical) {
+    if (emitted.has(descriptor.id)) continue;
+    ordered.push(descriptor);
+  }
+
+  return ordered;
 }
 
 function scoreDescriptor(
