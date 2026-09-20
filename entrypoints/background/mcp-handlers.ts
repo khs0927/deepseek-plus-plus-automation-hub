@@ -16,12 +16,21 @@ import type {
   McpCapabilitySettings,
   McpCapabilitySettingsPatch,
 } from '../../core/mcp/capability-types';
+import type {
+  JevShadowSettings,
+  JevShadowSettingsPatch,
+  JevShadowSettingsStatus,
+} from '../../core/mcp/jev-shadow';
 import { defineToolPayloadRuntimeCommandHandler } from './runtime-handler';
 
 export interface McpRuntimeHandlerDependencies {
   getAllMcpServers(): Promise<McpServerConfig[]>;
   getMcpCapabilitySettings(): Promise<McpCapabilitySettings>;
   updateMcpCapabilitySettings(patch: McpCapabilitySettingsPatch): Promise<McpCapabilitySettings>;
+  getJevShadowSettingsStatus(): Promise<JevShadowSettingsStatus>;
+  updateJevShadowSettings(patch: JevShadowSettingsPatch): Promise<JevShadowSettings>;
+  saveJevShadowApiKey(apiKey: string): Promise<void>;
+  clearJevShadowApiKey(): Promise<void>;
   setMcpCapabilityServerExposure(input: {
     serverId: string;
     mode: McpCapabilityExposureMode;
@@ -58,6 +67,20 @@ export function createMcpRuntimeHandlers(
       const settings = await dependencies.updateMcpCapabilitySettings(payload);
       await notifyMcpAndTools(context.tabId);
       return settings;
+    }),
+    definePayloadlessRuntimeCommandHandler('GET_JEV_SHADOW_SETTINGS_STATUS', () => (
+      dependencies.getJevShadowSettingsStatus()
+    )),
+    defineToolPayloadRuntimeCommandHandler('UPDATE_JEV_SHADOW_SETTINGS', (payload) => (
+      dependencies.updateJevShadowSettings(payload)
+    )),
+    defineToolPayloadRuntimeCommandHandler('SAVE_JEV_SHADOW_API_KEY', async (payload) => {
+      await dependencies.saveJevShadowApiKey(payload.apiKey);
+      return { ok: true as const, configured: true as const };
+    }),
+    definePayloadlessRuntimeCommandHandler('CLEAR_JEV_SHADOW_API_KEY', async () => {
+      await dependencies.clearJevShadowApiKey();
+      return { ok: true as const, configured: false as const };
     }),
     defineToolPayloadRuntimeCommandHandler('SET_MCP_CAPABILITY_SERVER_EXPOSURE', async (payload, context) => {
       const settings = await dependencies.setMcpCapabilityServerExposure(payload);
