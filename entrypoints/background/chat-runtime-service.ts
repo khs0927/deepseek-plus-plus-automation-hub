@@ -14,6 +14,7 @@ import {
   type EncodedDeepSeekImageUploadRequest,
 } from '../../core/messaging/deepseek-runtime-request-codec';
 import type { RuntimeToolCallOptions } from '../../core/tool/runtime';
+import { executeToolCallsWithPlan } from '../../core/tool/parallel-scheduler';
 import type {
   ToolCall,
   ToolDescriptor,
@@ -262,8 +263,11 @@ export function createChatRuntimeService(
         return;
       }
 
-      const executions: ToolExecutionRecord[] = [];
-      for (const call of toolCalls) executions.push(await executeChatTool(turn, call));
+      const executions = await executeToolCallsWithPlan<ToolExecutionRecord>({
+        calls: toolCalls,
+        descriptors: toolDescriptors,
+        execute: (call) => executeChatTool(turn, call),
+      });
       const continuationPrompt = dependencies.continueWithToolResults(
         serializeToolExecutions(executions),
       );
@@ -381,8 +385,11 @@ export function createChatRuntimeService(
         return currentMessages;
       }
 
-      const executions: ToolExecutionRecord[] = [];
-      for (const call of toolCalls) executions.push(await executeChatTool(turn, call));
+      const executions = await executeToolCallsWithPlan<ToolExecutionRecord>({
+        calls: toolCalls,
+        descriptors: toolDescriptors,
+        execute: (call) => executeChatTool(turn, call),
+      });
       currentMessages = [
         ...currentMessages,
         {
