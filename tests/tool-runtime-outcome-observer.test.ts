@@ -79,7 +79,19 @@ describe('runtime tool outcome observer', () => {
 
     expect(result).toEqual(providerResult);
     expect(observer.observe).toHaveBeenCalledWith({
-      call,
+      call: expect.objectContaining({
+        id: call.id,
+        descriptorId: call.descriptorId,
+        provider: call.provider,
+        name: call.name,
+        invocationName: call.invocationName,
+        payload: call.payload,
+        raw: call.raw,
+        source: expect.objectContaining({
+          trigger: 'test',
+          requestId: 'observer-request',
+        }),
+      }),
       descriptor,
       result: providerResult,
       signal: undefined,
