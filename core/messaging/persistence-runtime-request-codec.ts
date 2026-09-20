@@ -69,6 +69,14 @@ export const PERSISTENCE_RUNTIME_PAYLOAD_DECODERS: PersistenceRuntimePayloadDeco
     safeIntegerArray(payload.ids, 'TOUCH_MEMORIES.payload.ids');
     return typedPayload<'TOUCH_MEMORIES'>(payload);
   },
+  RANK_IMPLICIT_SKILL(value) {
+    const payload = recordValue(value, 'RANK_IMPLICIT_SKILL.payload');
+    nonEmptyString(payload.query, 'RANK_IMPLICIT_SKILL.payload.query');
+    if ((payload.query as string).length > 4_000) {
+      throw new Error('RANK_IMPLICIT_SKILL.payload.query must be at most 4000 characters');
+    }
+    return typedPayload<'RANK_IMPLICIT_SKILL'>(payload);
+  },
   SAVE_SKILL(value) {
     const payload = recordValue(value, 'SAVE_SKILL.payload');
     if (Object.hasOwn(payload, 'skill')) {
