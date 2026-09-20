@@ -1,6 +1,6 @@
 import { MCP_PROTOCOL_VERSION } from './contracts.mjs';
 
-export function createNativeRouter({ toolDefinitions, toolHandlerGroups, logger, serverVersion }) {
+export function createNativeRouter({ toolDefinitions, toolHandlerGroups, methodHandlerGroups = [], logger, serverVersion }) {
   if (typeof serverVersion !== 'string' || serverVersion.trim().length === 0) {
     throw new Error('Shell Host server version is missing from package metadata.');
   }
@@ -26,6 +26,7 @@ export function createNativeRouter({ toolDefinitions, toolHandlerGroups, logger,
       return jsonRpcResult(id, await handler(args));
     }],
   ]);
+  registerInternalMethodHandlers(methodHandlers, methodHandlerGroups);
 
   return {
     async handleEnvelope(envelope) {
@@ -44,6 +45,22 @@ export function createNativeRouter({ toolDefinitions, toolHandlerGroups, logger,
       return handler(id, message.params);
     },
   };
+}
+
+function registerInternalMethodHandlers(methodHandlers, methodHandlerGroups) {
+  for (const group of methodHandlerGroups) {
+    for (const registration of group) {
+      const method = registration?.method;
+      const handle = registration?.handle;
+      if (typeof method !== 'string' || method.trim().length === 0 || typeof handle !== 'function') {
+        throw new Error('Native internal method registration is invalid.');
+      }
+      if (methodHandlers.has(method)) {
+        throw new Error(`Native internal method registered more than once or shadows a reserved method: ${method}`);
+      }
+      methodHandlers.set(method, async (id, params) => jsonRpcResult(id, await handle(params)));
+    }
+  }
 }
 
 export function createToolRegistry(toolDefinitions, toolHandlerGroups) {
