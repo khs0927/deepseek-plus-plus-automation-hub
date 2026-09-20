@@ -46,6 +46,40 @@ const TOOLS = [
     }
   },
   {
+    name: 'invoke_subagent_batch',
+    description: '여러 독립 서브에이전트를 하나의 호출로 등록하고 bounded parallel fan-out으로 실행합니다. 실제 동시 실행 수는 maxConcurrentSubagents 정책을 따르며 초과 작업은 QUEUED 상태로 대기합니다.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tasks: {
+          type: 'array',
+          minItems: 1,
+          maxItems: 32,
+          items: {
+            type: 'object',
+            properties: {
+              role: { type: 'string', description: '서브에이전트 역할' },
+              task: { type: 'string', description: '독립 하위 작업 지시사항' },
+              engine: {
+                type: 'string',
+                enum: ['auto', 'deepseek_web', 'gemini', 'groq'],
+                description: '엔진 선택. 기본 auto.'
+              }
+            },
+            required: ['role', 'task'],
+            additionalProperties: false
+          }
+        },
+        background: {
+          type: 'boolean',
+          description: 'true면 task_id 목록을 즉시 반환하고, false면 모든 작업이 terminal 상태가 될 때까지 기다립니다.'
+        }
+      },
+      required: ['tasks'],
+      additionalProperties: false
+    }
+  },
+  {
     name: 'check_subagent_status',
     description: '스폰된 서브에이전트의 현재 진행 상태(RUNNING, COMPLETED, FAILED) 및 작업 결과물을 확인합니다.',
     inputSchema: {
@@ -89,7 +123,13 @@ const TOOLS = [
       properties: {
         geminiApiKey: { type: 'string', description: 'Google AI Studio 무료 API Key' },
         groqApiKey: { type: 'string', description: 'Groq Cloud 무료 API Key' },
-        defaultEngine: { type: 'string', enum: ['auto', 'deepseek_web', 'gemini', 'groq'] }
+        defaultEngine: { type: 'string', enum: ['auto', 'deepseek_web', 'gemini', 'groq'] },
+        maxConcurrentSubagents: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 16,
+          description: '동시에 실제 실행할 서브에이전트 상한. 초과 작업은 QUEUED.'
+        }
       }
     }
   },
@@ -230,6 +270,30 @@ async function handleJsonRpc(reqBody) {
             res.result
           ].join('\n');
         }
+      } else if (toolName === 'invoke_subagent_batch') {
+        const res = await orchestrator.invokeSubagentBatch(args);
+        if (res.background) {
+          toolResult = [
+            '### 🤖 서브에이전트 병렬 배치 등록 완료',
+            `- **Task 수**: ${res.taskIds.length}`,
+            `- **동시 실행 상한**: ${res.stats.maxConcurrent}`,
+            `- **현재 실행/대기**: ${res.stats.active} / ${res.stats.queued}`,
+            '',
+            ...res.tasks.map((task) => `- [${task.status}] \`${task.taskId}\` | ${task.role} | ${task.engine}`)
+          ].join('\n');
+        } else {
+          toolResult = [
+            '### 🤖 서브에이전트 병렬 배치 완료',
+            `- **Task 수**: ${res.taskIds.length}`,
+            '',
+            ...res.tasks.map((task) => [
+              `#### [${task.status}] ${task.role}`,
+              `- ID: \`${task.id}\``,
+              `- Engine: ${task.resolvedEngine || task.engine}`,
+              task.result ? `- Result:\n${task.result}` : `- Error: ${task.error || '없음'}`
+            ].join('\n'))
+          ].join('\n\n');
+        }
       } else if (toolName === 'check_subagent_status') {
         const record = orchestrator.checkStatus(args.task_id);
         if (record.error) {
@@ -239,6 +303,7 @@ async function handleJsonRpc(reqBody) {
             `### 서브에이전트 상태: [${record.role}]`,
             `- **ID**: ${record.id}`,
             `- **상태**: ${record.status}`,
+            record.queuePosition ? `- **대기 순번**: ${record.queuePosition}` : '',
             `- **엔진**: ${record.engine}`,
             `- **시작**: ${record.startTime}`,
             `- **종료**: ${record.endTime || '진행 중...'}`,
@@ -405,6 +470,19 @@ const server = http.createServer(async (req, res) => {
   const host = req.headers.host || `127.0.0.1:${PORT}`;
   const proto = host.includes('trycloudflare.com') ? 'https' : 'http';
   const url = new URL(req.url, `${proto}://${host}`);
+
+  if (req.method === 'GET' && url.pathname === '/health') {
+    const stats = orchestrator.getStats();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      ok: true,
+      service: 'deepseek-subagent-manager',
+      port: PORT,
+      engines: ['auto', 'deepseek_web', 'gemini', 'groq'],
+      stats
+    }));
+    return;
+  }
 
   if (req.method === 'GET' && (url.pathname === '/sse' || url.pathname === '/')) {
     res.writeHead(200, {
