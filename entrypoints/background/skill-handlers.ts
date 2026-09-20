@@ -23,6 +23,14 @@ export interface SkillRuntimeHandlerDependencies {
   getLocale(): SupportedLocale;
   getAllSkills(locale: SupportedLocale): Promise<Skill[]>;
   getSkillLibrary(locale: SupportedLocale): Promise<Skill[]>;
+  rankImplicitSkill(
+    query: string,
+    locale: SupportedLocale,
+  ): Promise<{
+    selection: { name: string; skillDir: string } | null;
+    source: 'lexical' | 'jev';
+    confidence?: number;
+  }>;
   getAllSkillSources(): Promise<SkillImportSource[]>;
   saveSkill(skill: Skill, previousName?: string): Promise<void>;
   deleteSkill(name: string): Promise<void>;
@@ -50,6 +58,9 @@ export function createSkillRuntimeHandlers(
     )),
     definePayloadlessRuntimeCommandHandler('GET_SKILL_LIBRARY', () => (
       dependencies.getSkillLibrary(dependencies.getLocale())
+    )),
+    definePersistencePayloadRuntimeCommandHandler('RANK_IMPLICIT_SKILL', (payload) => (
+      dependencies.rankImplicitSkill(payload.query, dependencies.getLocale())
     )),
     definePayloadlessRuntimeCommandHandler('GET_SKILL_SOURCES', () => (
       dependencies.getAllSkillSources()
