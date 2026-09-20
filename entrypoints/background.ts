@@ -829,7 +829,9 @@ async function initializeNativeDecisionRuntime(): Promise<void> {
         status.model,
       ),
     });
-    await ensureSubagentManagerAdaptiveExposure();
+    if (status.mode === 'active') {
+      await ensureSubagentManagerAdaptiveExposure();
+    }
   } catch (error) {
     // Native Host and Jev are optional. A missing host, missing environment
     // configuration, or startup race must never make the released lexical MCP
