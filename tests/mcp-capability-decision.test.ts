@@ -136,6 +136,67 @@ describe('MCP capability decision projection', () => {
     });
   });
 
+  it('uses an ephemeral adaptive overlay for the known Subagent Manager only in active mode', async () => {
+    const batch = createMcpDescriptor(
+      'subagent-manager',
+      'invoke_subagent_batch',
+      'Spawn multiple independent subagents.',
+    );
+    const list = createMcpDescriptor(
+      'subagent-manager',
+      'list_subagents',
+      'List current subagents.',
+    );
+    batch.provider = { ...batch.provider, displayName: 'Subagent Manager' };
+    list.provider = { ...list.provider, displayName: 'Subagent Manager' };
+    const helpers = createMcpCapabilityToolDescriptors('en');
+    const settings: McpCapabilitySettings = {
+      version: 1,
+      adaptiveMaxDirectTools: 1,
+      adaptiveMaxPromptBytes: 24_000,
+      servers: {},
+    };
+
+    configureDecisionRuntime({
+      mode: 'active',
+      provider: new MockDecisionProvider(() => ({
+        provider: 'mock',
+        confidence: 0.99,
+        selections: [
+          { candidateId: batch.id, confidence: 0.99 },
+          { candidateId: list.id, confidence: 0.20 },
+        ],
+      })),
+    });
+
+    const activeProjection = await projectMcpCapabilityDescriptorsWithDecision({
+      descriptors: [list, batch, ...helpers],
+      settings,
+      intent: 'run specialist agents in parallel',
+    });
+
+    expect(activeProjection.directDescriptorIds).toEqual([batch.id]);
+    expect(activeProjection.hiddenDescriptorIds).toEqual([list.id]);
+    expect(settings.servers).toEqual({});
+
+    configureDecisionRuntime({
+      mode: 'shadow',
+      provider: new MockDecisionProvider(() => {
+        throw new Error('shadow should not auto-convert a direct server to adaptive');
+      }),
+    });
+
+    const shadowProjection = await projectMcpCapabilityDescriptorsWithDecision({
+      descriptors: [list, batch, ...helpers],
+      settings,
+      intent: 'run specialist agents in parallel',
+    });
+
+    expect(shadowProjection.directDescriptorIds).toEqual([list.id, batch.id]);
+    expect(shadowProjection.hiddenDescriptorIds).toEqual([]);
+    expect(shadowProjection.usesCatalog).toBe(false);
+  });
+
   it('can route an adaptive Subagent Manager batch tool through the JEV decision layer', async () => {
     const subagent = createMcpDescriptor(
       'subagent-manager',
