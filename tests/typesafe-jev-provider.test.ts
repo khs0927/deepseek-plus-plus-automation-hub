@@ -60,6 +60,45 @@ describe('TypeSafeJevDecisionProvider', () => {
     });
   });
 
+  it('maps mcp_fanout into independent Noul questions and multi-selects above threshold', async () => {
+    const provider = new TypeSafeJevDecisionProvider({
+      async evaluate(payload) {
+        expect(Object.keys(payload.questions)).toEqual(['fanout_c0', 'fanout_c1', 'fanout_c2']);
+        expect(payload.questions.fanout_c0.type).toBe('noul');
+        return {
+          model: 'jev-fanout',
+          answers: {
+            fanout_c0: { type: 'noul', noul: 0.92 },
+            fanout_c1: { type: 'noul', noul: 0.81 },
+            fanout_c2: { type: 'noul', noul: 0.34 },
+          },
+        };
+      },
+    });
+
+    const result = await provider.evaluate({
+      requestId: 'fanout-1',
+      purpose: 'mcp_fanout',
+      intent: 'parallelize independent reads',
+      confidenceThreshold: 0.75,
+      candidates: [
+        { id: 'a', name: 'read_a', title: 'Read A', description: 'Read A', risk: 'low' },
+        { id: 'b', name: 'read_b', title: 'Read B', description: 'Read B', risk: 'low' },
+        { id: 'c', name: 'read_c', title: 'Read C', description: 'Read C', risk: 'low' },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      provider: 'typesafe-jev',
+      model: 'jev-fanout',
+      confidence: 0.81,
+      selections: [
+        { candidateId: 'a', confidence: 0.92, score: 0.92 },
+        { candidateId: 'b', confidence: 0.81, score: 0.81 },
+      ],
+    });
+  });
+
   it('maps result_judge into evidence-bounded outcome actions', async () => {
     const provider = new TypeSafeJevDecisionProvider({
       async evaluate(payload) {
