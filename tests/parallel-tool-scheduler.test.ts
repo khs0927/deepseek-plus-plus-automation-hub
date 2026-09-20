@@ -20,6 +20,7 @@ describe('parallel MCP tool scheduler', () => {
       parallelCallCount: 3,
       serialCallCount: 0,
       maxConcurrency: 4,
+      dagFallbackCount: 0,
     });
   });
 
@@ -124,12 +125,76 @@ describe('parallel MCP tool scheduler', () => {
     expect(isParallelSafeMcpDescriptor(compute)).toBe(false);
   });
 
-  it('keeps declared dependencies serial until a DAG executor resolves them', () => {
-    const dependent = descriptor('read_after_index', {
+  it('orders declared safe dependencies as deterministic DAG layers', () => {
+    const prepare = descriptor('prepare', { readOnlyHint: 'true' });
+    const independent = descriptor('independent', { readOnlyHint: 'true' });
+    const analyze = descriptor('analyze', {
       readOnlyHint: 'true',
-      'dpp.dependencies': JSON.stringify(['mcp:test:build_index']),
+      'dpp.dependencies': JSON.stringify([prepare.id]),
     });
-    expect(isParallelSafeMcpDescriptor(dependent)).toBe(false);
+    const summarize = descriptor('summarize', {
+      readOnlyHint: 'true',
+      'dpp.dependencies': JSON.stringify([analyze.invocationName]),
+    });
+
+    expect(isParallelSafeMcpDescriptor(analyze)).toBe(true);
+    const plan = planToolCallExecution(
+      [callFor(prepare), callFor(independent), callFor(analyze), callFor(summarize)],
+      [prepare, independent, analyze, summarize],
+      4,
+    );
+
+    expect(plan.batches).toEqual([
+      { mode: 'parallel', callIndexes: [0, 1] },
+      { mode: 'serial', callIndexes: [2] },
+      { mode: 'serial', callIndexes: [3] },
+    ]);
+    expect(plan.dagFallbackCount).toBe(0);
+  });
+
+  it('falls back an unresolved dependency segment to original-order serial execution', () => {
+    const first = descriptor('first', { readOnlyHint: 'true' });
+    const dependent = descriptor('dependent', {
+      readOnlyHint: 'true',
+      'dpp.dependencies': JSON.stringify(['mcp:test:missing']),
+    });
+
+    const plan = planToolCallExecution(
+      [callFor(first), callFor(dependent)],
+      [first, dependent],
+      4,
+    );
+
+    expect(plan.batches).toEqual([
+      { mode: 'serial', callIndexes: [0] },
+      { mode: 'serial', callIndexes: [1] },
+    ]);
+    expect(plan.dagFallbackCount).toBe(1);
+  });
+
+  it('falls back cyclic dependencies to original-order serial execution', () => {
+    const left = descriptor('left', { readOnlyHint: 'true' });
+    const right = descriptor('right', { readOnlyHint: 'true' });
+    left.annotations = {
+      ...left.annotations,
+      'dpp.dependencies': JSON.stringify([right.id]),
+    };
+    right.annotations = {
+      ...right.annotations,
+      'dpp.dependencies': JSON.stringify([left.id]),
+    };
+
+    const plan = planToolCallExecution(
+      [callFor(left), callFor(right)],
+      [left, right],
+      4,
+    );
+
+    expect(plan.batches).toEqual([
+      { mode: 'serial', callIndexes: [0] },
+      { mode: 'serial', callIndexes: [1] },
+    ]);
+    expect(plan.dagFallbackCount).toBe(1);
   });
 
   it('splits otherwise-safe calls that share a resource lock', () => {
@@ -154,6 +219,34 @@ describe('parallel MCP tool scheduler', () => {
       { mode: 'serial', callIndexes: [0] },
       { mode: 'parallel', callIndexes: [1, 2] },
     ]);
+  });
+
+  it('combines DAG layers with resource-lock conflict splitting', () => {
+    const rootA = descriptor('root_a', {
+      readOnlyHint: 'true',
+      'dpp.resourceLocks': JSON.stringify(['workspace:a']),
+    });
+    const rootB = descriptor('root_b', {
+      readOnlyHint: 'true',
+      'dpp.resourceLocks': JSON.stringify(['workspace:a']),
+    });
+    const child = descriptor('child', {
+      readOnlyHint: 'true',
+      'dpp.dependencies': JSON.stringify([rootA.id]),
+    });
+
+    const plan = planToolCallExecution(
+      [callFor(rootA), callFor(rootB), callFor(child)],
+      [rootA, rootB, child],
+      4,
+    );
+
+    expect(plan.batches).toEqual([
+      { mode: 'serial', callIndexes: [0] },
+      { mode: 'serial', callIndexes: [1] },
+      { mode: 'serial', callIndexes: [2] },
+    ]);
+    expect(plan.dagFallbackCount).toBe(0);
   });
 
   it('never parallelizes explicit write or external side-effect metadata', () => {
