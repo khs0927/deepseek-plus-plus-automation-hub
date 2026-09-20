@@ -552,6 +552,7 @@ export type MessageAction =
   | { type: 'GET_MEMORY_BY_ID'; payload: { id: number } }
   | { type: 'GET_SKILLS' }
   | { type: 'GET_SKILL_LIBRARY' }
+  | { type: 'RANK_IMPLICIT_SKILL'; payload: { query: string } }
   | { type: 'GET_SKILL_SOURCES' }
   | { type: 'GET_GITHUB_SKILL_SOURCES' }
   | { type: 'PREVIEW_GITHUB_SKILL_SOURCE'; payload: { url: string } }
