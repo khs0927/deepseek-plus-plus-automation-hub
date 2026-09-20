@@ -1,63 +1,87 @@
 ---
 name: subagent-orchestrator
 description: >-
-  서브에이전트(Subagent) 분업 및 오케스트레이션 Skill. 복합 분석, 대규모 리서치, 다단계 코드 작성,
-  다중 도구 연계 작업 또는 "서브에이전트", "하위 에이전트", "병렬로 조사해줘", "나눠서 진행해줘" 요청 시 필수 활성화됩니다.
-  주 에이전트로서 목표를 전문 하위 역할로 분해하고, invoke_subagent MCP 도구를 호출하여 자율적인 서브에이전트들을 지휘·취합합니다.
-version: 1.0.0
+  서브에이전트(Subagent) 분업 및 오케스트레이션 Skill. 복합 분석, 대규모 리서치,
+  다단계 코드 작성, 다중 도구 연계 작업 또는 "서브에이전트", "하위 에이전트",
+  "병렬로 조사해줘", "나눠서 진행해줘" 요청 시 활성화합니다.
+version: 1.1.0
+servers:
+  - "Subagent Manager"
+tools_count: 6
 ---
 
-# Subagent Orchestration (서브에이전트 분업 오케스트레이션)
+# Subagent Orchestration
 
-당신은 복잡한 다단계 문제를 스스로 모두 처리하지 않고, **전문 분야별 서브에이전트(Subagents)**를 생성하여 작업을 위임하고 총괄하는 **수석 오케스트레이터(Chief Orchestrator)**입니다.
+주 에이전트는 목표와 제약을 보존한 채 독립적인 하위 과업으로 분해하고, 실제 실행은 `Subagent Manager` MCP에 위임합니다.
 
----
+## 실행 도구
 
-## 1. 서브에이전트 분업이 필요한 상황
+- `invoke_subagent`: 단일 서브에이전트 실행
+- `invoke_subagent_batch`: 여러 독립 작업을 한 번에 등록하고 bounded parallel fan-out 실행
+- `check_subagent_status`: QUEUED / RUNNING / COMPLETED / FAILED / CANCELLED 상태 확인
+- `list_subagents`: 전체 서브에이전트 및 큐 상태 확인
+- `kill_subagent`: queued task 취소 또는 running task 취소 표시
+- `set_subagent_config`: 엔진 및 `maxConcurrentSubagents` 설정
 
-1. **다중 영역 결합 작업**: 예) "최신 AI 논문 트렌드 웹 리서치" + "로컬 벤치마크 코드 작성 및 실행"
-2. **복잡한 코드 개발/리팩토링**:
-   - `Code Architect`: 구조 설계 및 인터페이스 정의
-   - `Code Implementer`: 상세 모듈 구현
-   - `QA / Security Auditor`: 취약점 및 에지케이스 검증
-3. **독립적인 병렬 리서치**: 3개 이상의 비교 대상(프레임워크, 논문, 제품)을 각각 조사하여 통합 비교표 작성
-4. 사용자가 직접 *"서브에이전트 활용해줘"*, *"분업해서 해줘"*라고 지시한 경우
+## 권장 워크플로
 
----
+1. Strong LLM Planner가 요청을 2~8개의 독립 하위 과업으로 분해합니다.
+2. 작업 간 결과 의존성이 없으면 `invoke_subagent_batch`를 우선 사용합니다.
+3. 실제 동시 실행 수는 Subagent Manager의 `maxConcurrentSubagents`가 결정합니다. 기본값은 5이며 1~16 범위입니다.
+4. 동시 실행 상한을 넘은 작업은 실패하지 않고 `QUEUED` 상태로 대기합니다.
+5. 결과가 합류하면 주 에이전트가 누락, 충돌, 인터페이스 불일치를 검토하고 필요한 작업만 재호출합니다.
 
-## 2. 오케스트레이션 워크플로우
-
-### Step 1: 작업 분해 (Task Decomposition)
-사용자의 요청을 2~4개의 명확하고 독립적인 하위 과업(Subtask)으로 분해합니다.
-각 과업에 적합한 서브에이전트 역할(Role)을 정의합니다.
-
-### Step 2: 서브에이전트 스폰 (`invoke_subagent`)
-도구 `invoke_subagent`를 호출합니다.
+### 예시
 
 ```json
 {
-  "role": "데이터 시각화 엔지니어",
-  "task": "첨부된 CSV 파일의 컬럼 구조를 분석하고, Plotly 기반의 반응형 대시보드 코드를 작성하세요. 스타일은 다크 모드이며 주요 지표 3가지를 카드 형태로 상단에 배치해야 합니다.",
-  "engine": "auto",
+  "tasks": [
+    {
+      "role": "Code Architect",
+      "task": "현재 구조의 병렬 실행 경계와 인터페이스를 검토하고 변경안을 제시하세요.",
+      "engine": "auto"
+    },
+    {
+      "role": "Security Auditor",
+      "task": "권한 우회, 세션 혼선, secret leakage 가능성을 검토하세요.",
+      "engine": "auto"
+    },
+    {
+      "role": "QA Engineer",
+      "task": "필요한 회귀 테스트와 동시성 테스트를 설계하세요.",
+      "engine": "auto"
+    }
+  ],
   "background": false
 }
 ```
 
-- **병렬 실행이 필요한 경우**: 여러 서브에이전트를 한 번의 턴에서 여러 개의 `invoke_subagent` 도구 호출로 동시에 스폰하거나 `background: true`로 호출 후 `check_subagent_status`로 상태를 확인합니다.
+## JEV Decision Plane 연동 원칙
 
-### Step 3: 결과 취합 및 검증 (Synthesis & Quality Check)
-각 서브에이전트가 반환한 결과를 검토합니다:
-- 누락된 요구사항이 있는지 확인
-- 서브에이전트 간 결과의 정합성(인터페이스, 데이터 일치) 체크
-- 만약 특정 서브에이전트의 결과가 미흡하면 보완 지시를 담아 재호출
+JEV는 서브에이전트를 직접 실행하거나 권한을 부여하지 않습니다.
 
-### Step 4: 사용자 최종 브리핑
-모든 서브에이전트의 작업 결과물을 종합하여 사용자에게 명확하고 구조화된 최종 결과 보고서를 제출합니다.
-각 서브에이전트가 수행한 기여 내용을 요약 섹션에 명시합니다.
+```text
+Strong LLM Planner
+  -> subtask 후보
+  -> JEV relevance / route
+  -> Subagent Manager MCP
+  -> bounded parallel scheduler
+  -> worker engines
+  -> result join
+  -> Result Judge / Outcome Verifier
+```
 
----
+JEV 판단은 semantic recommendation입니다. 실제 MCP enablement, allowlist, capability lease, session binding, 승인 및 실행 정책은 기존 Runtime이 계속 소유합니다.
 
-## 3. 서브에이전트 호출 팁
+## 엔진 선택
 
-- `role`은 구체적일수록 좋습니다 (예: "단순 도우미" ❌ -> "FastAPI 백엔드 보안 전문가" ⭕).
-- `task`에는 목표, 입력 데이터 경로, 제약 조건, 최종 산출물 형식을 상세하게 명시하십시오.
+`engine: "auto"`를 기본으로 사용합니다.
+
+현재 auto는 로컬 설정에 사용 가능한 무료 키가 있으면 Gemini 또는 Groq를 선택하고, 없으면 로그인된 DeepSeek Web/CDP 세션을 사용합니다. 엔진을 강제할 필요가 있을 때만 명시적으로 지정합니다.
+
+## 안전 규칙
+
+- 서로 의존하는 작업은 무조건 같은 batch로 병렬 실행하지 않습니다.
+- write 작업을 여러 서브에이전트가 같은 파일/브랜치/리소스에 동시에 적용하게 하지 않습니다.
+- running task의 cancel은 현재 cooperative cancellation입니다. 상태는 즉시 CANCELLED가 되지만 underlying worker는 cleanup을 위해 잠시 실행될 수 있습니다.
+- API key, cookie, password, session secret을 task 문자열에 포함하지 않습니다.
