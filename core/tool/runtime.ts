@@ -60,8 +60,20 @@ export interface RuntimeCapabilityInvocationResolver {
   ): Promise<RuntimeCapabilityInvocationResolution>;
 }
 
+export interface RuntimeToolOutcomeObservation {
+  call: ToolCall;
+  descriptor: ToolDescriptor;
+  result: ToolResult;
+  signal?: AbortSignal;
+}
+
+export interface RuntimeToolOutcomeObserver {
+  observe(input: RuntimeToolOutcomeObservation): Promise<void>;
+}
+
 export interface RuntimeToolRuntimeOptions {
   capabilityInvocationResolver?: RuntimeCapabilityInvocationResolver;
+  outcomeObserver?: RuntimeToolOutcomeObserver;
 }
 
 export interface RuntimeToolRuntime {
@@ -103,6 +115,7 @@ export function createRuntimeToolRuntime(
         locale,
         callOptions,
         runtimeOptions.capabilityInvocationResolver,
+        runtimeOptions.outcomeObserver,
       ),
   };
 }
@@ -125,6 +138,7 @@ async function executeRuntimeToolCall(
   locale: SupportedLocale = DEFAULT_LOCALE,
   options: RuntimeToolCallOptions = {},
   capabilityInvocationResolver?: RuntimeCapabilityInvocationResolver,
+  outcomeObserver?: RuntimeToolOutcomeObserver,
 ): Promise<ToolResult> {
   assertRuntimeExecutionActive(options);
   const identifiedCall = !call.id && options.idempotencyKey
@@ -260,7 +274,30 @@ async function executeRuntimeToolCall(
     message: `tool finished: ${result.name ?? resolvedCall.name} (${result.ok ? 'ok' : 'error'})`,
     details: summarizeToolResult(result),
   });
+  await observeToolOutcomeSafely(outcomeObserver, {
+    call: resolvedCall,
+    descriptor: executionDescriptor,
+    result,
+    signal: options.signal,
+  });
   return result;
+}
+
+async function observeToolOutcomeSafely(
+  observer: RuntimeToolOutcomeObserver | undefined,
+  input: RuntimeToolOutcomeObservation,
+): Promise<void> {
+  if (!observer) return;
+  try {
+    await observer.observe(input);
+  } catch (error) {
+    diagnosticLogBuffer.record({
+      level: 'warn',
+      source: 'tool-runtime',
+      message: `tool outcome observer failed: ${input.call.name}`,
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function summarizeToolResult(result: ToolResult): string {

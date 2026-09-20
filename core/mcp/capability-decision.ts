@@ -4,6 +4,7 @@ import {
   getDecisionRuntimeConfig,
 } from '../decision/provider';
 import { decisionTraceBuffer } from '../decision/trace';
+import { sanitizeDecisionText } from '../decision/sanitize';
 import {
   getMcpCapabilityServerSettings,
 } from './capability-settings';
@@ -79,7 +80,7 @@ export async function projectMcpCapabilityDescriptorsWithDecision(
     const result = await evaluateDecision({
       requestId,
       purpose: 'mcp_rank',
-      intent: sanitizeText(input.intent, 2_000),
+      intent: sanitizeDecisionText(input.intent, 2_000),
       candidates: candidates.map(toDecisionCandidate),
       confidenceThreshold: MCP_DECISION_CONFIDENCE_THRESHOLD,
     }, input.signal);
@@ -171,33 +172,10 @@ function withActiveDecisionExposureDefaults(
 function toDecisionCandidate(descriptor: ToolDescriptor) {
   return {
     id: descriptor.id,
-    name: sanitizeText(descriptor.invocationName || descriptor.name, 160),
-    title: sanitizeText(descriptor.title, 240),
-    description: sanitizeText(descriptor.description, MCP_DECISION_TEXT_LIMIT),
-    provider: sanitizeText(descriptor.provider.id, 160),
+    name: sanitizeDecisionText(descriptor.invocationName || descriptor.name, 160),
+    title: sanitizeDecisionText(descriptor.title, 240),
+    description: sanitizeDecisionText(descriptor.description, MCP_DECISION_TEXT_LIMIT),
+    provider: sanitizeDecisionText(descriptor.provider.id, 160),
     risk: descriptor.execution.risk,
   } as const;
-}
-
-function sanitizeText(value: string, maxChars: number): string {
-  return redactDecisionSecrets(value)
-    .replace(/[\u0000-\u001F\u007F]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, maxChars);
-}
-
-function redactDecisionSecrets(value: string): string {
-  return value
-    .replace(
-      /\b(authorization|api[_ -]?key|access[_ -]?token|token|password|passwd|secret)\b\s*[:=]\s*(?:bearer\s+)?[^\s,;]{4,}/gi,
-      '$1=[REDACTED]',
-    )
-    .replace(/\bbearer\s+[A-Za-z0-9._~+\/=:-]{8,}/gi, 'Bearer [REDACTED]')
-    .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '[REDACTED_GITHUB_TOKEN]')
-    .replace(/\bsk-[A-Za-z0-9_-]{16,}\b/g, '[REDACTED_API_KEY]')
-    .replace(
-      /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
-      '[REDACTED_JWT]',
-    );
 }

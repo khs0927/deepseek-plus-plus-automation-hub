@@ -60,6 +60,52 @@ describe('TypeSafeJevDecisionProvider', () => {
     });
   });
 
+  it('maps result_judge into evidence-bounded outcome actions', async () => {
+    const provider = new TypeSafeJevDecisionProvider({
+      async evaluate(payload) {
+        expect(payload.questions.route.instructions).toContain('supplied execution evidence');
+        expect(Object.keys(payload.questions.route.criteria)).toEqual([
+          'c0',
+          'c1',
+          'c2',
+          '__none__',
+        ]);
+        return {
+          model: 'jev-judge',
+          answers: {
+            route: {
+              type: 'choice',
+              choice: 'c2',
+              probabilities: {
+                c0: 0.10,
+                c1: 0.15,
+                c2: 0.70,
+                __none__: 0.05,
+              },
+              confidence: 0.70,
+            },
+          },
+        };
+      },
+    });
+
+    const result = await provider.evaluate({
+      requestId: 'judge-1',
+      purpose: 'result_judge',
+      intent: 'Tool result is truncated and evidence is ambiguous.',
+      candidates: [
+        { id: 'accept', name: 'accept', title: 'Accept', description: 'Accept the result.' },
+        { id: 'retry', name: 'retry', title: 'Retry', description: 'Retry the same operation.' },
+        { id: 'escalate', name: 'escalate', title: 'Escalate', description: 'Escalate for stronger reasoning.' },
+      ],
+    });
+
+    expect(result.selections[0]).toMatchObject({
+      candidateId: 'escalate',
+      confidence: 0.70,
+    });
+  });
+
   it('turns the reserved none option into an abstaining escalation', async () => {
     const provider = new TypeSafeJevDecisionProvider({
       async evaluate() {

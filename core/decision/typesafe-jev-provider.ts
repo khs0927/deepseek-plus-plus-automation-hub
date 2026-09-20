@@ -46,8 +46,8 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
     request: DecisionRequest,
     signal?: AbortSignal,
   ): Promise<DecisionResult> {
-    if (request.purpose !== 'mcp_rank') {
-      throw new Error(`TypeSafeJevDecisionProvider does not support purpose: ${request.purpose}`);
+    if (request.purpose === 'mcp_fanout') {
+      throw new Error('TypeSafeJevDecisionProvider requires a dedicated multi-select path for mcp_fanout.');
     }
     if (request.candidates.length === 0) {
       return {
@@ -81,7 +81,7 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
 
     // Reserve one option so the provider can abstain instead of forcing a poor
     // route. The application still owns the final confidence policy.
-    criteria.__none__ = 'None of the listed capabilities is relevant enough to the requested intent.';
+    criteria.__none__ = buildAbstainCriterion(request.purpose);
 
     const response = await this.transport.evaluate({
       model: this.model,
@@ -92,12 +92,7 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
       questions: {
         route: {
           type: 'choice',
-          instructions: [
-            'Choose the capability that is most relevant to the user intent.',
-            'Use only the supplied criteria keys.',
-            'Choose __none__ when no candidate is sufficiently relevant.',
-            'Do not infer permission or authorization; this is relevance ranking only.',
-          ].join(' '),
+          instructions: buildQuestionInstructions(request.purpose),
           criteria,
         },
       },
@@ -146,6 +141,39 @@ function decodeSystemOneRanking(
     selections: abstained ? [] : ranked,
     ...(abstained ? { escalated: true as const, escalationReason: 'unsure' as const } : {}),
   };
+}
+
+function buildQuestionInstructions(purpose: DecisionRequest['purpose']): string {
+  switch (purpose) {
+    case 'result_judge':
+      return [
+        'Choose the best outcome action using only the supplied execution evidence.',
+        'Do not claim external truth that is not present in the evidence.',
+        'Use retry only when repeating the same operation is plausibly useful.',
+        'Use escalate for ambiguity, conflict, truncation, or when stronger reasoning is needed.',
+        'Use only the supplied criteria keys and choose __none__ when evidence is insufficient.',
+      ].join(' ');
+    case 'skill_rank':
+      return 'Choose the skill most relevant to the requested intent. Use only supplied criteria keys and choose __none__ when none is relevant enough.';
+    case 'agent_route':
+      return 'Choose the agent capability best suited to the requested intent. Do not infer execution permission. Use __none__ when no candidate is suitable.';
+    case 'model_route':
+      return 'Choose the model capability best suited to the requested intent from the supplied criteria. Use __none__ when evidence is insufficient.';
+    case 'mcp_rank':
+    default:
+      return [
+        'Choose the capability that is most relevant to the user intent.',
+        'Use only the supplied criteria keys.',
+        'Choose __none__ when no candidate is sufficiently relevant.',
+        'Do not infer permission or authorization; this is relevance ranking only.',
+      ].join(' ');
+  }
+}
+
+function buildAbstainCriterion(purpose: DecisionRequest['purpose']): string {
+  return purpose === 'result_judge'
+    ? 'The supplied execution evidence is insufficient to choose accept, retry, or escalate confidently.'
+    : 'None of the listed capabilities is relevant enough to the requested intent.';
 }
 
 function buildCriterion(candidate: DecisionCandidate): string {
