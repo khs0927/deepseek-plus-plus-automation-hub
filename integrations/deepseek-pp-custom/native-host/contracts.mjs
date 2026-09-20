@@ -56,6 +56,62 @@ const SESSION_MARKER_PREFIX = '__DPP_SESSION_END__';
 
 const TOOL_DEFINITIONS = [
   {
+    name: 'github_control',
+    title: 'GitHub Operations Controller',
+    description: 'Perform GitHub operations (repo_list, repo_view, pr_list, pr_create, issue_list, issue_create, git_status, exec_gh) using authenticated GitHub CLI (khs0927).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['repo_list', 'repo_view', 'pr_list', 'pr_create', 'issue_list', 'issue_create', 'git_status', 'exec_gh'], description: 'Action to perform.' },
+        command: { type: 'string', description: 'Command string when action is exec_gh.' },
+        repo: { type: 'string', description: 'Target repository, e.g. khs0927/All-In-Cad.' },
+        title: { type: 'string', description: 'Title for PR or Issue.' },
+        body: { type: 'string', description: 'Body for PR or Issue.' },
+        cwd: { type: 'string', description: 'Working directory for git operations.' },
+      },
+      required: ['action'],
+      additionalProperties: true,
+    },
+    annotations: { operation: 'write', risk: 'medium' },
+  },
+  {
+    name: 'mcp_list_servers',
+    title: 'List Registered MCP Servers',
+    description: 'List all registered MCP servers and their status.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'mcp_list_tools',
+    title: 'List Tools of an MCP Server',
+    description: 'List all available tools, descriptions, and input schemas for a specific MCP server.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        server: { type: 'string', description: 'Server ID from mcp_list_servers.' }
+      },
+      required: ['server'],
+      additionalProperties: false,
+    },
+    annotations: { operation: 'read', risk: 'low' },
+  },
+  {
+    name: 'mcp_call',
+    title: 'Call Registered MCP Tool',
+    description: 'Execute any tool from any registered MCP server with specified arguments.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        server: { type: 'string', description: 'Server ID' },
+        tool: { type: 'string', description: 'Tool name to invoke' },
+        arguments: { type: 'object', description: 'Arguments payload for the tool' }
+      },
+      required: ['server', 'tool'],
+      additionalProperties: true,
+    },
+    annotations: { operation: 'write', risk: 'medium' },
+  },
+  {
     name: 'shell_exec',
     title: 'Execute Shell Command',
     description: 'Execute a command in the shell reported by shell_status. Returns stdout, stderr, and exit code.',

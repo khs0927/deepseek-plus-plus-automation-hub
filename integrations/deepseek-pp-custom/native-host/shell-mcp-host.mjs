@@ -5,6 +5,7 @@ import { TOOL_DEFINITIONS } from './contracts.mjs';
 import { createFileToolHandlers } from './file-provider.mjs';
 import { createNativeMessageChannel, NATIVE_EOF } from './framing.mjs';
 import { createHostLogger } from './logger.mjs';
+import { createMcpGatewayHandlers } from './mcp-gateway-provider.mjs';
 import { initializeHostEnvironment } from './os-adapter.mjs';
 import { readShellHostPackageMetadata } from './package-metadata.mjs';
 import { createPickerToolHandlers } from './picker-provider.mjs';
@@ -26,6 +27,7 @@ const router = createNativeRouter({
   toolDefinitions: TOOL_DEFINITIONS,
   toolHandlerGroups: [
     createProcessToolHandlers(),
+    createMcpGatewayHandlers(),
     createSkillToolHandlers(),
     createPickerToolHandlers(),
     createFileToolHandlers({ logLine: logger.logLine }),
