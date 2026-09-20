@@ -138,7 +138,7 @@ const artifact: ArtifactRecord = {
 };
 
 describe('R4.1 persistence runtime handler ownership', () => {
-  it('creates exactly the 57 inventory-assigned handlers and completes the sole registry', async () => {
+  it('creates exactly the 64 inventory-assigned handlers and completes the sole registry', async () => {
     const handlers = createPersistenceRuntimeHandlers({
       memory: createMemoryDependencies(),
       skill: createSkillDependencies(),
@@ -147,10 +147,10 @@ describe('R4.1 persistence runtime handler ownership', () => {
       localPreference: createLocalPreferenceDependencies(),
     });
     const types = handlers.map((handler) => handler.type);
-    const expected = readInventoryCommands('R4.1 / #360 — Persistence, library, and local preferences (63)');
+    const expected = readInventoryCommands('R4.1 / #360 — Persistence, library, and local preferences (64)');
 
-    expect(types).toHaveLength(63);
-    expect(new Set(types).size).toBe(63);
+    expect(types).toHaveLength(64);
+    expect(new Set(types).size).toBe(64);
     expect([...types].sort()).toEqual([...expected].sort());
     for (const type of types) expect(getRuntimeCommandOwner(type)).toBe('typed-handler');
     const decodedTypes = Object.entries(RUNTIME_COMMAND_CONTRACTS)
