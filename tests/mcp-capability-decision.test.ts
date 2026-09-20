@@ -109,6 +109,54 @@ describe('MCP capability decision projection', () => {
     });
   });
 
+  it('can route an adaptive Subagent Manager batch tool through the JEV decision layer', async () => {
+    const subagent = createMcpDescriptor(
+      'subagent-manager',
+      'invoke_subagent_batch',
+      'Spawn multiple independent subagents with bounded parallel fan-out.',
+    );
+    const search = createMcpDescriptor(
+      'search-server',
+      'search_docs',
+      'Search project documentation.',
+    );
+    const helpers = createMcpCapabilityToolDescriptors('en');
+
+    configureDecisionRuntime({
+      mode: 'active',
+      provider: new MockDecisionProvider(() => ({
+        provider: 'mock',
+        confidence: 0.97,
+        selections: [
+          { candidateId: subagent.id, confidence: 0.97 },
+          { candidateId: search.id, confidence: 0.42 },
+        ],
+      })),
+    });
+
+    const settings: McpCapabilitySettings = {
+      version: 1,
+      adaptiveMaxDirectTools: 1,
+      adaptiveMaxPromptBytes: 24_000,
+      servers: {
+        'subagent-manager': { mode: 'adaptive', pinnedDescriptorIds: [] },
+        'search-server': { mode: 'adaptive', pinnedDescriptorIds: [] },
+      },
+    };
+
+    const projection = await projectMcpCapabilityDescriptorsWithDecision({
+      descriptors: [search, subagent, ...helpers],
+      settings,
+      intent: 'split this coding task across multiple specialist agents in parallel',
+    });
+
+    expect(projection.directDescriptorIds).toEqual([subagent.id]);
+    expect(decisionTraceBuffer.list()[0]).toMatchObject({
+      selectedIds: [subagent.id, search.id],
+      applied: true,
+    });
+  });
+
   it('never lets a semantic provider demote an explicit pin', async () => {
     const alpha = createMcpDescriptor('server-1', 'alpha_search', 'Search project documents.');
     const beta = createMcpDescriptor('server-1', 'beta_write', 'Write a project document.');
