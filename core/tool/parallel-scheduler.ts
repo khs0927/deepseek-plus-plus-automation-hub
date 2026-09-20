@@ -20,6 +20,13 @@ export interface ExecutePlannedToolCallsOptions<T> {
   descriptors: readonly ToolDescriptor[];
   execute(call: ToolCall, index: number): Promise<T>;
   maxConcurrency?: number;
+  allowedParallelCallIndexes?: ReadonlySet<number>;
+}
+
+export interface ParallelSafeMcpCall {
+  index: number;
+  call: ToolCall;
+  descriptor: ToolDescriptor;
 }
 
 const READ_PREFIXES = [
@@ -66,6 +73,7 @@ export function planToolCallExecution(
   calls: readonly ToolCall[],
   descriptors: readonly ToolDescriptor[],
   maxConcurrency = DEFAULT_PARALLEL_TOOL_CONCURRENCY,
+  allowedParallelCallIndexes?: ReadonlySet<number>,
 ): ParallelToolExecutionPlan {
   const normalizedConcurrency = normalizeConcurrency(maxConcurrency);
   const descriptorMap = buildDescriptorLookup(descriptors);
@@ -90,7 +98,11 @@ export function planToolCallExecution(
 
   calls.forEach((call, index) => {
     const descriptor = resolveDescriptor(call, descriptorMap);
-    if (descriptor && isParallelSafeMcpDescriptor(descriptor)) {
+    if (
+      descriptor &&
+      isParallelSafeMcpDescriptor(descriptor) &&
+      (!allowedParallelCallIndexes || allowedParallelCallIndexes.has(index))
+    ) {
       pendingParallel.push(index);
       return;
     }
@@ -117,6 +129,7 @@ export async function executeToolCallsWithPlan<T>(
     options.calls,
     options.descriptors,
     options.maxConcurrency,
+    options.allowedParallelCallIndexes,
   );
   const results = new Array<T>(options.calls.length);
 
@@ -138,6 +151,19 @@ export async function executeToolCallsWithPlan<T>(
   }
 
   return results;
+}
+
+export function getParallelSafeMcpCalls(
+  calls: readonly ToolCall[],
+  descriptors: readonly ToolDescriptor[],
+): ParallelSafeMcpCall[] {
+  const descriptorMap = buildDescriptorLookup(descriptors);
+  return calls.flatMap((call, index) => {
+    const descriptor = resolveDescriptor(call, descriptorMap);
+    return descriptor && isParallelSafeMcpDescriptor(descriptor)
+      ? [{ index, call, descriptor }]
+      : [];
+  });
 }
 
 export function isParallelSafeMcpDescriptor(descriptor: ToolDescriptor): boolean {
