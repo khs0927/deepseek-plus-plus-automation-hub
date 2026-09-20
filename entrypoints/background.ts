@@ -84,6 +84,7 @@ import {
 import { projectMcpCapabilityDescriptorsWithDecision } from '../core/mcp/capability-decision';
 import { configureDecisionRuntime } from '../core/decision/provider';
 import { TypeSafeJevDecisionProvider } from '../core/decision/typesafe-jev-provider';
+import { decisionToolOutcomeObserver } from '../core/decision/tool-outcome-observer';
 import {
   createNativeTypeSafeSystemOneTransport,
   getNativeTypeSafeDecisionStatus,
@@ -315,6 +316,7 @@ const {
   refreshToolDescriptors: refreshRuntimeToolDescriptors,
 } = createRuntimeToolRuntime(createProductionToolProviderRegistry(), {
   capabilityInvocationResolver: createMcpCapabilityInvocationResolver(),
+  outcomeObserver: decisionToolOutcomeObserver,
 });
 let currentBackgroundLocale: SupportedLocale = DEFAULT_LOCALE;
 let currentBackgroundTranslator = createTranslator(DEFAULT_LOCALE);
