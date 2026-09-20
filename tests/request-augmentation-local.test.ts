@@ -131,6 +131,85 @@ describe('augmentRequestBody 本地索引 Skill 激活分支', () => {
     expect(bodyPrompt).toContain('## Local Execution Boundary');
   });
 
+  it('background preflight null → 기존 lexical implicit activation을 억제', () => {
+    const result = augmentRequestBody(JSON.stringify({
+      prompt: '周报',
+      parent_message_id: null,
+      thinking_enabled: false,
+    }), {
+      memories: [],
+      skills: [localIndexSkill()],
+      activePreset: null,
+      modelType: null,
+      toolDescriptors: [],
+      messageCount: 0,
+      locale: 'en',
+      implicitSkillSelection: null,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.agentTaskPrompt).toBe('周报');
+    expect(result!.activeLocalSkillDir).toBeUndefined();
+  });
+
+  it('background preflight selection → 이름과 local directory가 모두 일치할 때만 활성화', () => {
+    const result = augmentRequestBody(JSON.stringify({
+      prompt: '周报',
+      parent_message_id: null,
+      thinking_enabled: false,
+    }), {
+      memories: [],
+      skills: [localIndexSkill()],
+      activePreset: null,
+      modelType: null,
+      toolDescriptors: [],
+      messageCount: 0,
+      locale: 'en',
+      implicitSkillSelection: { name: 'demo', skillDir: '/skills/demo' },
+    });
+
+    expect(result!.agentTaskPrompt).toContain(LOCAL_INDEX_MARKER);
+    expect(result!.activeLocalSkillDir).toBe('/skills/demo');
+
+    const mismatch = augmentRequestBody(JSON.stringify({
+      prompt: '周报',
+      parent_message_id: null,
+      thinking_enabled: false,
+    }), {
+      memories: [],
+      skills: [localIndexSkill()],
+      activePreset: null,
+      modelType: null,
+      toolDescriptors: [],
+      messageCount: 0,
+      locale: 'en',
+      implicitSkillSelection: { name: 'demo', skillDir: '/skills/other' },
+    });
+
+    expect(mismatch!.agentTaskPrompt).toBe('周报');
+    expect(mismatch!.activeLocalSkillDir).toBeUndefined();
+  });
+
+  it('명시적 /demo는 preflight null이어도 확률 라우팅을 우회한다', () => {
+    const result = augmentRequestBody(JSON.stringify({
+      prompt: '/demo 写本周周报',
+      parent_message_id: null,
+      thinking_enabled: false,
+    }), {
+      memories: [],
+      skills: [localIndexSkill()],
+      activePreset: null,
+      modelType: null,
+      toolDescriptors: [],
+      messageCount: 0,
+      locale: 'en',
+      implicitSkillSelection: null,
+    });
+
+    expect(result!.agentTaskPrompt).toContain(LOCAL_INDEX_MARKER);
+    expect(result!.activeLocalSkillDir).toBe('/skills/demo');
+  });
+
   it('显式 /demo 命中本地索引 Skill → 同样注入 D4 边界', () => {
     const result = augmentRequestBody(JSON.stringify({
       prompt: '/demo 写本周周报',
