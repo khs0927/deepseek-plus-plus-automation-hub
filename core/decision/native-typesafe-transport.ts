@@ -1,9 +1,6 @@
 import { SHELL_MCP_NATIVE_HOST } from '../shell';
 import { requestNativeInternal } from '../mcp/transports/native';
-import type {
-  TypeSafeSystemOneRequest,
-  TypeSafeSystemOneTransport,
-} from './typesafe-jev-provider';
+import type { TypeSafeSystemOneTransport } from './typesafe-jev-provider';
 import type { DecisionRuntimeMode } from './provider';
 
 const NATIVE_DECISION_TIMEOUT_MS = 10_000;
