@@ -70,6 +70,14 @@ export interface PersistenceRuntimeCommandContracts {
     request: DeclaredRuntimeRequest<'GET_SKILL_LIBRARY'>;
     response: Skill[];
   };
+  RANK_IMPLICIT_SKILL: {
+    request: DeclaredRuntimeRequest<'RANK_IMPLICIT_SKILL'>;
+    response: {
+      selection: { name: string; skillDir: string } | null;
+      source: 'lexical' | 'jev';
+      confidence?: number;
+    };
+  };
   GET_SKILL_SOURCES: {
     request: DeclaredRuntimeRequest<'GET_SKILL_SOURCES'>;
     response: SkillImportSource[];

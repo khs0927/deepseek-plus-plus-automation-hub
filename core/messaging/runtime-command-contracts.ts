@@ -61,6 +61,7 @@ export const RUNTIME_COMMAND_CONTRACTS = {
   TOUCH_MEMORIES: typedCommand('payload-decoded', 'ack', 'background-error', 'live-only'),
   GET_SKILLS: typedCommand('none', 'value'),
   GET_SKILL_LIBRARY: typedCommand('none', 'value'),
+  RANK_IMPLICIT_SKILL: typedCommand('payload-decoded', 'value'),
   GET_SKILL_SOURCES: typedCommand('none', 'value'),
   GET_GITHUB_SKILL_SOURCES: typedCommand('none', 'value'),
   SAVE_SKILL: typedCommand('payload-decoded', 'ack'),

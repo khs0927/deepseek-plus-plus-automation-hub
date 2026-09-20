@@ -60,6 +60,7 @@ import {
   type RegenerateAuthorizationScope,
   type RegeneratePromptOptionsSnapshot,
 } from "../core/interceptor/regenerate-authorization-scope";
+import { parseSkillCommand } from "../core/skill/parser";
 import {
   DEFAULT_SKILL_AUTO_ACTIVATION_SETTINGS,
   normalizeSkillAutoActivationSettings,
@@ -1639,6 +1640,17 @@ async function handleAugmentRequestBody(data: {
           });
         },
       });
+    const implicitSkillSelection =
+      await resolveImplicitSkillSelectionForRequest(
+        bodyWithMultimodalMedia,
+        (timeoutMs) => {
+          postToMainWorld({
+            type: "AUGMENT_REQUEST_BODY_EXTEND_TIMEOUT",
+            id,
+            timeoutMs,
+          });
+        },
+      );
     // Authorize first (without dir) for the augment's tool-descriptor filtering below.
     authorization = await createContentToolAuthorization({
       requestId,
@@ -1664,6 +1676,7 @@ async function handleAugmentRequestBody(data: {
       locale: currentContentLocale,
       promptSettings: currentPromptSettings,
       skillAutoActivation: currentSkillAutoActivation,
+      implicitSkillSelection,
     });
 
     currentRequestMessageCount = result.messageCount;
@@ -1734,6 +1747,58 @@ async function handleAugmentRequestBody(data: {
       pendingToolAuthorizationCorrelations.finish(mainRequestId);
     }
   }
+}
+
+type ImplicitSkillPreflightSelection =
+  | { name: string; skillDir: string }
+  | null
+  | undefined;
+
+async function resolveImplicitSkillSelectionForRequest(
+  body: DeepSeekRequestBody,
+  extendTimeout: (timeoutMs: number) => void,
+): Promise<ImplicitSkillPreflightSelection> {
+  if (parseSkillCommand(body.prompt)) return undefined;
+
+  const auto =
+    currentSkillAutoActivation ?? DEFAULT_SKILL_AUTO_ACTIVATION_SETTINGS;
+  const isFirstMessage =
+    body.parent_message_id === null || body.parent_message_id === undefined;
+  const implicitAllowed =
+    auto.everyMessage || (auto.firstMessage && isFirstMessage);
+  if (!implicitAllowed) return undefined;
+
+  extendTimeout(15_000);
+  const response = await sendRuntimeMessage<unknown>({
+    type: "RANK_IMPLICIT_SKILL",
+    payload: { query: body.prompt.slice(0, 4_000) },
+  });
+  return decodeImplicitSkillPreflightSelection(response);
+}
+
+function decodeImplicitSkillPreflightSelection(
+  value: unknown,
+): ImplicitSkillPreflightSelection {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  const selection = (value as Record<string, unknown>).selection;
+  if (selection === null) return null;
+  if (!selection || typeof selection !== "object" || Array.isArray(selection)) {
+    return undefined;
+  }
+  const record = selection as Record<string, unknown>;
+  if (
+    typeof record.name !== "string" ||
+    !record.name.trim() ||
+    typeof record.skillDir !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    name: record.name.trim(),
+    skillDir: record.skillDir,
+  };
 }
 
 function postAugmentRequestPassthrough(id: string): void {
