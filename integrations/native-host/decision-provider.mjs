@@ -3,6 +3,7 @@ const DEFAULT_MODEL = 'jev-latest';
 const DEFAULT_MODE = 'shadow';
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_REQUEST_BYTES = 512 * 1024;
+const MAX_RESPONSE_BYTES = 512 * 1024;
 
 export function createDecisionMethodHandlers(options = {}) {
   const env = options.env || process.env;
@@ -100,7 +101,18 @@ export async function evaluateDecisionRequest(params, options = {}) {
     throw new Error(`TypeSafe decision provider returned HTTP ${response.status}.`);
   }
 
-  const result = await response.json();
+  const responseText = await response.text();
+  const responseBytes = Buffer.byteLength(responseText, 'utf8');
+  if (responseBytes > MAX_RESPONSE_BYTES) {
+    throw new Error(`TypeSafe decision provider response is too large (${responseBytes} bytes > ${MAX_RESPONSE_BYTES} bytes).`);
+  }
+
+  let result;
+  try {
+    result = JSON.parse(responseText);
+  } catch {
+    throw new Error('TypeSafe decision provider returned invalid JSON.');
+  }
   if (!result || typeof result !== 'object' || Array.isArray(result)) {
     throw new Error('TypeSafe decision provider returned an invalid JSON object.');
   }
