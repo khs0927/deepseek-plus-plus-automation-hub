@@ -85,6 +85,7 @@ import { projectMcpCapabilityDescriptorsWithDecision } from '../core/mcp/capabil
 import { configureDecisionRuntime } from '../core/decision/provider';
 import { TypeSafeJevDecisionProvider } from '../core/decision/typesafe-jev-provider';
 import { decisionToolOutcomeObserver } from '../core/decision/tool-outcome-observer';
+import { rankImplicitSkillWithDecision } from '../core/decision/skill-rank';
 import {
   createNativeTypeSafeSystemOneTransport,
   getNativeTypeSafeDecisionStatus,
@@ -439,6 +440,10 @@ const runtimeCommandRegistry = createRuntimeCommandRegistry({
         getLocale: () => currentBackgroundLocale,
         getAllSkills: (locale) => getAllSkills({ locale }),
         getSkillLibrary,
+        rankImplicitSkill: async (query, locale) => rankImplicitSkillWithDecision(
+          query,
+          await getAllSkills({ locale }),
+        ),
         getAllSkillSources,
         saveSkill,
         deleteSkill: persistenceMutations.deleteSkill,
