@@ -25,13 +25,11 @@ export interface TypeSafeSystemOneRequest {
       risk?: string;
     }>;
   };
-  questions: {
-    route: {
-      type: 'choice';
-      instructions: string;
-      criteria: Record<string, string>;
-    };
-  };
+  questions: Record<string, {
+    type: 'choice' | 'noul';
+    instructions: string;
+    criteria: Record<string, string>;
+  }>;
 }
 
 export class TypeSafeJevDecisionProvider implements DecisionProvider {
@@ -47,7 +45,7 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
     signal?: AbortSignal,
   ): Promise<DecisionResult> {
     if (request.purpose === 'mcp_fanout') {
-      throw new Error('TypeSafeJevDecisionProvider requires a dedicated multi-select path for mcp_fanout.');
+      return this.evaluateFanout(request, signal);
     }
     if (request.candidates.length === 0) {
       return {
@@ -99,7 +97,123 @@ export class TypeSafeJevDecisionProvider implements DecisionProvider {
     }, signal);
 
     return decodeSystemOneRanking(response, optionToCandidate, this.id, this.model);
+
+  private async evaluateFanout(
+    request: DecisionRequest,
+    signal?: AbortSignal,
+  ): Promise<DecisionResult> {
+    if (request.candidates.length === 0) {
+      return {
+        provider: this.id,
+        model: this.model,
+        confidence: 0,
+        selections: [],
+        escalated: true,
+        escalationReason: 'unsure',
+      };
+    }
+    if (request.candidates.length > 64) {
+      throw new Error('Jev MCP fan-out accepts at most 64 deterministic-safe candidates per evaluation.');
+    }
+
+    const optionToCandidate = new Map<string, DecisionCandidate>();
+    const stateCandidates = request.candidates.map((candidate, index) => {
+      const key = `c${index}`;
+      optionToCandidate.set(key, candidate);
+      return {
+        key,
+        name: candidate.name,
+        title: candidate.title,
+        description: candidate.description,
+        ...(candidate.provider ? { provider: candidate.provider } : {}),
+        ...(candidate.risk ? { risk: candidate.risk } : {}),
+      };
+    });
+    const questions = Object.fromEntries(
+      stateCandidates.map((candidate) => [
+        `fanout_${candidate.key}`,
+        {
+          type: 'noul' as const,
+          instructions: [
+            'Estimate whether this already deterministic-safe MCP call should participate in the same parallel fan-out for the supplied intent.',
+            'Judge semantic relevance and likely independence only.',
+            'Do not grant permission, do not override runtime safety, and answer low when ordering or dependency is plausible.',
+            `Candidate: ${candidate.title}. ${candidate.description}`,
+          ].join(' '),
+          criteria: {
+            true: 'This candidate is relevant and plausibly independent enough to run concurrently with other deterministic-safe candidates.',
+            false: 'This candidate should remain serial because relevance or independence is uncertain.',
+          },
+        },
+      ]),
+    );
+
+    const response = await this.transport.evaluate({
+      model: this.model,
+      state: {
+        intent: request.intent,
+        candidates: stateCandidates,
+      },
+      questions,
+    }, signal);
+
+    return decodeSystemOneFanout(
+      response,
+      optionToCandidate,
+      request.confidenceThreshold ?? 0.75,
+      this.id,
+      this.model,
+    );
   }
+  }
+}
+
+function decodeSystemOneFanout(
+  raw: unknown,
+  optionToCandidate: ReadonlyMap<string, DecisionCandidate>,
+  threshold: number,
+  providerId: string,
+  requestedModel: string,
+): DecisionResult {
+  const response = requireRecord(raw, 'response');
+  const answers = requireRecord(response.answers, 'response.answers');
+  const scored = [...optionToCandidate.entries()].map(([key, candidate]) => {
+    const answer = requireRecord(
+      answers[`fanout_${key}`],
+      `response.answers.fanout_${key}`,
+    );
+    if (answer.type !== undefined && answer.type !== 'noul') {
+      throw new Error(`TypeSafe System One fan-out answer has invalid type for ${key}.`);
+    }
+    const probability = requireProbability(
+      answer.noul,
+      `response.answers.fanout_${key}.noul`,
+    );
+    return {
+      candidateId: candidate.id,
+      confidence: probability,
+      score: probability,
+    };
+  });
+
+  const selections = scored
+    .filter((selection) => selection.confidence >= threshold)
+    .sort((left, right) => right.confidence - left.confidence);
+  const confidence = selections.length > 0
+    ? Math.min(...selections.map((selection) => selection.confidence))
+    : Math.max(0, 1 - Math.max(...scored.map((selection) => selection.confidence), 0));
+
+  return {
+    provider: providerId,
+    model: typeof response.model === 'string' && response.model.trim()
+      ? response.model
+      : requestedModel,
+    confidence,
+    selections,
+    ...(selections.length === 0
+      ? { escalated: true as const, escalationReason: 'unsure' as const }
+      : {}),
+  };
 }
 
 function decodeSystemOneRanking(
