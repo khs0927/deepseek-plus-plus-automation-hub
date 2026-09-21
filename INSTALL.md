@@ -164,6 +164,7 @@ npm run shell:uninstall -- --browser firefox
 
 - DeepSeek 로그인과 세션 쿠키
 - 공식 API key와 MCP credential
+- 로컬 MCP 구성 파일(`integrations/mcp/mcp_servers.master.json`)
 - Chrome/Edge 개발자 모드 확장 로드
 - 외부 MCP 서버 설치·신뢰 승인
 - 임의 Shell 명령에 대한 OS sandbox
