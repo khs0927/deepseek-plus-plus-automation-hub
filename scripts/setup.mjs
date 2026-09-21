@@ -45,6 +45,15 @@ function parseArgs(argv) {
     } else throw new Error(`Unknown option: ${token}`);
   }
   if (!browsers.has(args.browser)) throw new Error(`Unsupported browser: ${args.browser}`);
+  for (const [name, value] of [
+    ['--chrome-extension-id', args.chromeExtensionId],
+    ['--edge-extension-id', args.edgeExtensionId],
+    ['--chromium-extension-id', args.chromiumExtensionId],
+  ]) {
+    if (value && !/^[a-p]{32}$/.test(value)) {
+      throw new Error(`${name} must be a 32-character Chromium extension ID (lowercase a-p).`);
+    }
+  }
   return args;
 }
 
@@ -87,7 +96,18 @@ function npmCommand() {
 
 function run(command, args) {
   console.log(`\n> ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, { cwd: root, stdio: 'inherit', shell: false });
+  // Windows npm is a .cmd shim. Node 26 rejects spawning that shim with
+  // shell:false (EINVAL), even though older Node versions often accepted it.
+  // Invoke cmd.exe explicitly so argument handling remains shell:false and we
+  // do not rely on Node's deprecated implicit shell behavior.
+  const useCommandShell = platform() === 'win32' && command.toLowerCase().endsWith('.cmd');
+  const executable = useCommandShell ? (process.env.ComSpec || 'cmd.exe') : command;
+  const spawnArgs = useCommandShell ? ['/d', '/s', '/c', command, ...args] : args;
+  const result = spawnSync(executable, spawnArgs, {
+    cwd: root,
+    stdio: 'inherit',
+    shell: false,
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} exited with code ${result.status ?? 'unknown'}.`);
 }
@@ -146,7 +166,16 @@ function install(args) {
 function status(args) {
   assertNodeVersion();
   const selected = args.browser === 'all' ? ['chrome', 'edge', 'firefox'] : [args.browser];
-  for (const browser of selected) run(process.execPath, ['scripts/install-shell-host.mjs', 'status', '--browser', browser]);
+  let failures = 0;
+  for (const browser of selected) {
+    try {
+      run(process.execPath, ['scripts/install-shell-host.mjs', 'status', '--browser', browser]);
+    } catch (error) {
+      failures += 1;
+      console.error(`\nStatus check failed for ${browser}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  if (failures > 0) throw new Error(`${failures} browser installation status check(s) failed.`);
 }
 
 try {

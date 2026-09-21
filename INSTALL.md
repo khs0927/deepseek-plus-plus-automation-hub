@@ -148,6 +148,8 @@ npm run shell:status -- --browser edge
 npm run shell:status -- --browser firefox
 ```
 
+Node.js 26에서 `spawnSync npm.cmd EINVAL`이 보이면 저장소를 최신 커밋으로 갱신한 뒤 원클릭 설치를 다시 실행한다. 최신 setup은 Windows `cmd.exe`를 명시적으로 사용해 이 문제를 피한다.
+
 삭제는 브라우저별로 수행한다.
 
 ```bash

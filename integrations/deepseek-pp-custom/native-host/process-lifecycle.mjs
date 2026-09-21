@@ -36,7 +36,7 @@ export function attachProcessToJobObject(child, { logLine = () => {} } = {}) {
     const timer = setTimeout(() => {
       try { helper.kill(); } catch { /* already closed */ }
       finish({ attached: false, guaranteed: false, method: 'helper-ready-timeout' });
-    }, 2_000);
+    }, 10_000);
     timer.unref?.();
     helper.stdout?.on('data', chunk => {
       if (!String(chunk).includes('READY')) return;
