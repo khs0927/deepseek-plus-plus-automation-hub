@@ -7,6 +7,7 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
+const { normalizeCdpUrl } = require('../control/agent_control');
 
 class CdpLifecycleManager {
   /**
@@ -14,8 +15,8 @@ class CdpLifecycleManager {
    * @param {string} endpoint CDP 엔드포인트 URL
    */
   constructor(port = 9222, endpoint = 'http://127.0.0.1:9222') {
-    this.port = port;
-    this.endpoint = endpoint;
+    this.endpoint = normalizeCdpUrl(endpoint);
+    this.port = Number(new URL(this.endpoint).port || port);
   }
 
   /**
@@ -44,10 +45,10 @@ class CdpLifecycleManager {
 
     console.log('⚠️ [CDP Manager] CDP 9222 포트가 응답하지 않습니다. Edge 런처를 가동합니다...');
     const launcherPath = path.resolve(__dirname, 'launch_edge.js');
-    const proc = spawn('node', [launcherPath], {
+    const proc = spawn(process.execPath, [launcherPath], {
       detached: true,
       stdio: 'ignore',
-      shell: true,
+      shell: false,
     });
     proc.unref();
 
@@ -65,17 +66,20 @@ class CdpLifecycleManager {
   /**
    * 세움터 활성 페이지 탐색 및 컨텍스트 연결
    */
-  async getSeumterPage() {
+  async getSeumterPage({ createIfMissing = false } = {}) {
     await this.ensureCdpReady();
     const browser = await chromium.connectOverCDP(this.endpoint);
-    const context = browser.contexts()[0] || (await browser.newContext());
-    const pages = context.pages();
+    const context = browser.contexts()[0];
+    if (!context) throw new Error('Connected Edge browser has no persistent context');
 
-    let page = pages.find((p) => !p.isClosed() && (p.url().includes('eais.go.kr') || p.url().includes('websquare.html')));
-    if (!page) {
-      page = pages.find((p) => !p.isClosed()) || (await context.newPage());
-      await page.goto('https://www.eais.go.kr/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    let page = context.pages().find(candidate =>
+      !candidate.isClosed() && /^https?:\/\/([^\/]*\.)?eais\.go\.kr(?:\/|$)/i.test(candidate.url())
+    );
+    if (!page && createIfMissing) {
+      page = await context.newPage();
+      await page.goto('https://www.eais.go.kr/', { waitUntil: 'domcontentloaded', timeout: 30000 });
     }
+    if (!page) throw new Error('No open EAIS/Seumter tab was found in the CDP Edge profile');
     await page.bringToFront();
     return { browser, context, page };
   }

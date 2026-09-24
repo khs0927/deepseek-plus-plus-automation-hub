@@ -14,12 +14,20 @@ class WebSquareDriver {
   }
 
   /**
-   * 브라우저 Alert/Confirm 다이얼로그 자동 수락 트랩 설정
+   * 브라우저 Alert/Confirm 다이얼로그를 명시적으로 승인한 메시지만 수락한다.
+   * 승인 목록이 없으면 모든 다이얼로그를 닫아 예기치 않은 저장/제거를 막는다.
    */
-  installDialogTrap() {
+  installDialogTrap({ acceptMessages = [] } = {}) {
+    const allowed = new Set(acceptMessages.map(message => String(message).trim()).filter(Boolean));
     this.page.on('dialog', async (dialog) => {
-      console.log(`  💬 [WebSquare Dialog] "${dialog.message()}" -> 수락 처리`);
-      await dialog.accept().catch(() => {});
+      const message = dialog.message();
+      if (allowed.has(message.trim())) {
+        console.log(`  💬 [WebSquare Dialog] "${message}" -> 승인 목록에 따라 수락`);
+        await dialog.accept().catch(() => {});
+      } else {
+        console.log(`  💬 [WebSquare Dialog] "${message}" -> 승인 목록에 없어 닫기`);
+        await dialog.dismiss().catch(() => {});
+      }
     });
   }
 
@@ -28,16 +36,16 @@ class WebSquareDriver {
    */
   async verifySessionActive() {
     return await this.page.evaluate(() => {
-      const $p = window.$p;
-      if (!$p) return { active: false, reason: 'WebSquare5 not initialized' };
-
-      const sessionRep = $p.getComponentById('ds_SessionRep') || window.ds_SessionRep;
-      if (!sessionRep) {
-        const isLoginRequired = document.body.innerText.includes('로그인') &&
-                                !document.body.innerText.includes('로그아웃');
-        return { active: !isLoginRequired, reason: isLoginRequired ? 'Session expired' : 'OK' };
+      const text = document.body ? document.body.innerText : '';
+      const sessionRep = window.$p && typeof window.$p.getComponentById === 'function'
+        ? window.$p.getComponentById('ds_SessionRep')
+        : window.ds_SessionRep;
+      if (sessionRep) return { active: true, state: 'authenticated' };
+      if (/로그인/.test(text) && !/로그아웃/.test(text)) {
+        return { active: false, state: 'login_required' };
       }
-      return { active: true, user: sessionRep.get('userNm') || 'Authorized' };
+      if (/로그아웃/.test(text)) return { active: true, state: 'authenticated' };
+      return { active: null, state: 'unknown', reason: 'WebSquare session indicator not found' };
     });
   }
 
@@ -116,7 +124,8 @@ class WebSquareDriver {
   /**
    * 도면 삭제 및 덮어쓰기 시 화면 중앙 확인 모달 자동 [예] 클릭
    */
-  async handleConfirmModal(expectedAction = '예') {
+  async handleConfirmModal(expectedAction = '예', { confirm = false } = {}) {
+    if (confirm !== true) throw new Error('handleConfirmModal requires confirm: true');
     await this.page.waitForTimeout(500);
     return await this.page.evaluate((targetText) => {
       const visibleButtons = Array.from(document.querySelectorAll('button, input[type="button"], a')).filter(el => {

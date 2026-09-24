@@ -64,10 +64,15 @@ mcp_list_servers → mcp_list_tools(server) → mcp_call(server, tool, arguments
 cd integrations/seumter
 npm ci
 npm test
-.\\시작_Edge.bat
+npm run control:install-task
+npm run control:status
+npm run control:launch
+npm run control:inspect
 ~~~
 
-기본 연결은 http://127.0.0.1:9222이고 MCP 서버는 http://127.0.0.1:3300/mcp 또는 /sse를 사용한다. 세움터가 [NULL]처리중 오류를 반환하면 자동화 코드보다 로그인 세션을 먼저 확인한다. 인증 입력이 필요하면 사용자에게 요청한다.
+Aside 제어 CLI는 `http://127.0.0.1:3300/mcp`의 로컬 데몬을 사용하고, 데몬이 Edge CDP `http://127.0.0.1:9222` 연결을 소유한다. `control:install-task`은 Windows 작업 스케줄러에 `Aside-Seumter-Control`을 등록해 로그온 시 자동 시작한다. `click`, `fill`, `screenshot`, `launch`는 `--confirm`이 없으면 실행되지 않으며, 임의 JavaScript eval은 기본 차단된다.
+
+세움터가 [NULL]처리중 오류를 반환하면 자동화 코드보다 로그인 세션을 먼저 확인한다. 인증 입력이 필요하면 사용자에게 요청한다.
 
 ## 6. 커밋/푸시
 
