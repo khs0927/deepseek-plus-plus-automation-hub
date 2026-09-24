@@ -2,22 +2,27 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { spawnSync } = require('child_process');
 const axios = require('axios');
-const { chromium } = require('playwright');
+const {
+  closeSeumterSession,
+  inspectPage,
+  listTabs,
+  normalizeCdpUrl,
+  openSeumterSession,
+  safeScreenshotPath,
+} = require('../control/agent_control');
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
 const { SSEServerTransport } = require('@modelcontextprotocol/sdk/server/sse.js');
 const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontextprotocol/sdk/types.js');
 
 const PORT = process.env.SEUMTER_MCP_PORT || 3300;
-const CDP_URL = process.env.CDP_URL || 'http://127.0.0.1:9222';
+const CDP_URL = normalizeCdpUrl(process.env.CDP_URL || 'http://127.0.0.1:9222');
+const ALLOW_EVAL = process.env.SEUMTER_ALLOW_EVAL === '1';
 
-// Helper: Get active Seumter page from Edge
+// Helper: Get the active EAIS page from the dedicated Edge CDP profile.
 async function getSeumterPage() {
-  const browser = await chromium.connectOverCDP(CDP_URL);
-  const context = browser.contexts()[0];
-  const pages = context.pages();
-  const page = pages.find(p => p.url().includes('eais.go.kr') || p.url().includes('websquare.html')) || pages[0];
-  return { browser, context, page };
+  return openSeumterSession({ endpoint: CDP_URL });
 }
 
 // Tool definitions
@@ -25,6 +30,22 @@ const TOOLS = [
   {
     name: 'seumter_status',
     description: 'Check Microsoft Edge connection (CDP 9222) and active Seumter (EAIS) tab status, URL, title, and WebSquare state.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'seumter_launch_edge',
+    description: 'Start or reuse the dedicated visible Edge CDP profile for Seumter. This is an explicit local process action.',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  },
+  {
+    name: 'seumter_list_tabs',
+    description: 'List tabs in the dedicated Edge CDP profile and mark EAIS/Seumter tabs without changing them.',
     inputSchema: {
       type: 'object',
       properties: {}
@@ -41,8 +62,19 @@ const TOOLS = [
     }
   },
   {
+    name: 'seumter_inspect',
+    description: 'Return structured Seumter page state, visible text, login indicators, and interactive element metadata without executing arbitrary code.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        maxLength: { type: 'number', description: 'Maximum visible text characters (default: 6000, maximum: 20000)' },
+        maxElements: { type: 'number', description: 'Maximum interactive elements to return (default: 120, maximum: 300)' }
+      }
+    }
+  },
+  {
     name: 'seumter_eval_websquare',
-    description: 'Execute JavaScript code directly in the Seumter page context. Full access to window.$p, WebSquare components, and DOM.',
+    description: 'Execute JavaScript in the Seumter page. Disabled by default; set SEUMTER_ALLOW_EVAL=1 only for trusted local diagnostics.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -129,19 +161,11 @@ async function handleToolCall(name, args) {
       try {
         const res = await getSeumterPage();
         browser = res.browser;
-        const page = res.page;
-        const url = page.url();
-        const title = await page.title();
-        const evalInfo = await page.evaluate(() => {
-          return {
-            hasWebSquare: typeof window.$p !== 'undefined',
-            activeTabs: Array.from(document.querySelectorAll('a, button, li.w2tab_active, .active'))
-              .map(el => (el.innerText || '').trim())
-              .filter(t => t.length > 1 && t.length < 20)
-              .slice(0, 10),
-            bodyLength: document.body.innerText.length
-          };
-        }).catch(err => ({ error: err.message }));
+        const inspection = await inspectPage(res.page, { maxElements: 30, maxTextLength: 1000 });
+        const activeTabs = await res.page.evaluate(() => Array.from(document.querySelectorAll('a, button, li.w2tab_active, .active'))
+          .map(element => (element.innerText || '').trim())
+          .filter(text => text.length > 1 && text.length < 20)
+          .slice(0, 10));
 
         return {
           content: [{
@@ -149,10 +173,17 @@ async function handleToolCall(name, args) {
             text: JSON.stringify({
               status: 'connected',
               cdpUrl: CDP_URL,
-              pageTitle: title,
-              pageUrl: url,
-              isSeumter: url.includes('eais.go.kr'),
-              webSquare: evalInfo
+              pageTitle: inspection.title,
+              pageUrl: inspection.url,
+              isSeumter: inspection.isSeumter,
+              loginState: inspection.loginState,
+              hasWebSquare: inspection.hasWebSquare,
+              sessionRepPresent: inspection.sessionRepPresent,
+              webSquare: {
+                activeTabs,
+                bodyLength: inspection.bodyLength,
+                bodyPreview: inspection.bodyPreview
+              }
             }, null, 2)
           }]
         };
@@ -169,7 +200,47 @@ async function handleToolCall(name, args) {
           isError: true
         };
       } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeSeumterSession({ browser });
+      }
+    }
+
+    case 'seumter_launch_edge': {
+      const script = path.resolve(__dirname, '../../launch_visible_edge.ps1');
+      const result = spawnSync('powershell.exe', [
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', script,
+      ], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 20000,
+        env: { ...process.env, CDP_URL },
+      });
+      if (result.error) {
+        return { content: [{ type: 'text', text: `Edge launch error: ${result.error.message}` }], isError: true };
+      }
+      if (result.status !== 0) {
+        return { content: [{ type: 'text', text: `Edge launcher exited with code ${result.status}` }], isError: true };
+      }
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({ status: 'launched', cdpUrl: CDP_URL }, null, 2)
+        }]
+      };
+    }
+
+    case 'seumter_list_tabs': {
+      try {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify(await listTabs({ endpoint: CDP_URL }), null, 2)
+          }]
+        };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Tab listing error: ${err.message}` }], isError: true };
       }
     }
 
@@ -193,11 +264,33 @@ async function handleToolCall(name, args) {
       } catch (err) {
         return { content: [{ type: 'text', text: `Error reading page: ${err.message}` }], isError: true };
       } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeSeumterSession({ browser });
+      }
+    }
+
+    case 'seumter_inspect': {
+      let session;
+      try {
+        session = await getSeumterPage();
+        const inspection = await inspectPage(session.page, {
+          maxElements: args.maxElements,
+          maxTextLength: args.maxLength,
+        });
+        return { content: [{ type: 'text', text: JSON.stringify(inspection, null, 2) }] };
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Inspection error: ${err.message}` }], isError: true };
+      } finally {
+        await closeSeumterSession(session);
       }
     }
 
     case 'seumter_eval_websquare': {
+      if (!ALLOW_EVAL) {
+        return {
+          content: [{ type: 'text', text: 'seumter_eval_websquare is disabled. Use seumter_inspect or the structured control CLI. Set SEUMTER_ALLOW_EVAL=1 only for an explicitly trusted diagnostic session.' }],
+          isError: true
+        };
+      }
       let browser;
       try {
         const res = await getSeumterPage();
@@ -213,7 +306,7 @@ async function handleToolCall(name, args) {
       } catch (err) {
         return { content: [{ type: 'text', text: `Evaluation error: ${err.message}` }], isError: true };
       } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeSeumterSession({ browser });
       }
     }
 
@@ -249,7 +342,7 @@ async function handleToolCall(name, args) {
       } catch (err) {
         return { content: [{ type: 'text', text: `Click failed: ${err.message}` }], isError: true };
       } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeSeumterSession({ browser });
       }
     }
 
@@ -282,7 +375,7 @@ async function handleToolCall(name, args) {
 
         return { content: [{ type: 'text', text: `Fill failed: ${err.message}` }], isError: true };
       } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeSeumterSession({ browser });
       }
     }
 
@@ -366,7 +459,7 @@ async function handleToolCall(name, args) {
         const page = res.page;
         const scratchDir = path.resolve(__dirname, '../../scratch');
         if (!fs.existsSync(scratchDir)) fs.mkdirSync(scratchDir, { recursive: true });
-        const filePath = path.join(scratchDir, args.filename || `seumter_${Date.now()}.png`);
+        const filePath = safeScreenshotPath(args.filename, scratchDir);
         await page.screenshot({ path: filePath });
         return {
           content: [{
@@ -377,7 +470,7 @@ async function handleToolCall(name, args) {
       } catch (err) {
         return { content: [{ type: 'text', text: `Screenshot failed: ${err.message}` }], isError: true };
       } finally {
-        if (browser) await browser.close().catch(() => {});
+        await closeSeumterSession({ browser });
       }
     }
 
