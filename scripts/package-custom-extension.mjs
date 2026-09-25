@@ -122,7 +122,8 @@ function readFile(path, encoding) {
 }
 
 function readJson(path) {
-  return JSON.parse(readFile(path, 'utf8'));
+  // Strip a leading UTF-8 BOM (U+FEFF) so BOM-prefixed manifests parse cleanly.
+  return JSON.parse(readFile(path, 'utf8').replace(/^\uFEFF/, ''));
 }
 
 function writeJson(path, value) {
