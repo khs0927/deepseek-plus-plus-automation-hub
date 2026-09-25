@@ -3,7 +3,7 @@
   "description": "Agentic memory, skills, agentic execution, automation, and MCP tools for DeepSeek",
   "private": true,
   "license": "Apache-2.0",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "engines": {
     "node": ">=18.17"
   },
@@ -42,7 +42,7 @@
     "smoke:pyodide": "node scripts/pyodide-offline-smoke.mjs",
     "verify:persistence-burst": "vitest run tests/persistence-burst-budget.test.ts --reporter=verbose",
     "verify:i18n": "node scripts/i18n-locale-check.mjs && node scripts/i18n-coverage-audit.mjs",
-    "ci:quality": "npm run verify:workflows && npm run audit:prod && npm run prompt:freeze && npm run compile && npm test && npm run verify:persistence-burst && npm run verify:i18n && npm run verify:automation && npm run smoke:mcp && npm run verify:mcp:mock && npm run smoke:shell && npm run smoke:native-concurrent && npm run smoke:windows-job && npm run smoke:pow && npm run build:all && npm run verify:bundled-skills && npm run verify:sidepanel-chunks && npm run verify:extension-utf8 && npm run verify:manifest-policy && npm run zip:all && npm run verify:release-assets && npm run smoke:pyodide",
+    "ci:quality": "npm run verify:workflows && npm run audit:prod && npm run prompt:freeze && npm run compile && npm test && npm run verify:persistence-burst && npm run verify:i18n && npm run verify:automation && npm run smoke:mcp && npm run verify:mcp:mock && npm run smoke:shell && npm run smoke:native-concurrent && npm run smoke:windows-job && npm run smoke:pow && npm run build:all && npm run verify:custom && npm run verify:bundled-skills && npm run verify:sidepanel-chunks && npm run verify:extension-utf8 && npm run verify:manifest-policy && npm run zip:all && npm run verify:release-assets && npm run smoke:pyodide",
     "shell:install": "node scripts/install-shell-host.mjs",
     "shell:status": "node scripts/install-shell-host.mjs status",
     "shell:uninstall": "node scripts/install-shell-host.mjs uninstall",
@@ -57,7 +57,10 @@
     "smoke:mcp": "node scripts/mcp-smoke.mjs",
     "verify:automation": "node scripts/automation-contract-smoke.mjs",
     "verify:mcp:mock": "node scripts/mcp-live-mock.mjs",
-    "postinstall": "wxt prepare"
+    "postinstall": "wxt prepare",
+    "build:custom": "npm run build:edge && npm run package:custom",
+    "package:custom": "node scripts/package-custom-extension.mjs",
+    "verify:custom": "node scripts/package-custom-extension.mjs --verify"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.83.0",
