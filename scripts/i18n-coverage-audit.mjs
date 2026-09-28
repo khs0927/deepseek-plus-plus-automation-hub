@@ -110,6 +110,11 @@ const lineAllowlist = [
     reason: 'negative assertion checks README public-doc leakage fragments',
   },
   {
+    path: 'scripts/e2e-multi-chat.mjs',
+    includes: '/Projects|项目/i',
+    reason: 'real-browser smoke assertion that the sidepanel rendered its Projects entry point; it deliberately accepts either locale projection of core/i18n/resources/{en,zh-CN}/app.ts `projects` ("Projects" / "项目") because the harness runs against an operator-supplied browser profile whose locale is unknown. The shipped UI is locale-backed; only this locale-agnostic assertion carries the literal',
+  },
+  {
     path: 'scripts/automation-contract-smoke.mjs',
     includes: "['Agent', '任务']",
     reason: 'negative assertion checks README public-doc leakage fragments',
