@@ -198,6 +198,11 @@ import {
   saveDeepSeekApiKey,
 } from '../core/chat/api-key';
 import {
+  hasJevApiKey,
+  saveJevApiKey,
+  clearJevApiKey,
+} from '../core/chat/jev-api-key';
+import {
   getOfficialApiChatConfig,
   saveOfficialApiChatConfig,
 } from '../core/chat/official-api-config';
@@ -606,6 +611,9 @@ const runtimeCommandRegistry = createRuntimeCommandRegistry({
         hasDeepSeekApiKey,
         saveDeepSeekApiKey,
         clearDeepSeekApiKey,
+        hasJevApiKey,
+        saveJevApiKey,
+        clearJevApiKey,
         resetChatSession: () => chatRuntimeService.resetSession(),
         refreshContextMenus: createContextMenus,
         getChatAuthStatus,

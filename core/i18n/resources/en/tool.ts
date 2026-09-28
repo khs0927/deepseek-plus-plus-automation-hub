@@ -212,4 +212,15 @@ export const tool = {
     evaluateScriptTitle: 'Evaluate script',
     evaluateScriptDescription: 'Run JavaScript in the controlled page and return a serializable result.',
   },
+  jev: {
+    providerName: 'DeepSeek++ Jev Decision',
+    decideTitle: 'Ask Jev for a decision',
+    decideDescription: 'Ask narrow choice/noul/score questions about one shared state and get typed values with probabilities. Advisory only: it does not grant permission, run anything, or verify a claim, so route uncertain or consequential results to the user. The state text is sent to an external decision endpoint.',
+    stateDescription: 'The shared state every question is evaluated against.',
+    questionsDescription: 'Up to 8 narrow questions. Each has an id, instructions, and type=choice (with a criteria object) or type=noul or type=score (with an ordered criteria list).',
+    unsupported: 'Unsupported Jev tool',
+    invalidPayload: 'Invalid jev_decide payload',
+    complete: 'Jev returned {count} answer(s)',
+    unavailable: 'The Jev decision endpoint is unavailable',
+  },
 } as const;

@@ -36,6 +36,9 @@ const R43_COMMANDS = [
   'GET_DEEPSEEK_API_KEY_STATUS',
   'SAVE_DEEPSEEK_API_KEY',
   'CLEAR_DEEPSEEK_API_KEY',
+  'GET_JEV_API_KEY_STATUS',
+  'SAVE_JEV_API_KEY',
+  'CLEAR_JEV_API_KEY',
   'GET_MULTIMODAL_SETTINGS_STATUS',
   'SAVE_MULTIMODAL_SETTINGS',
   'CLEAR_MULTIMODAL_SETTINGS',
@@ -53,6 +56,7 @@ const R43_COMMANDS = [
 
 const R43_PAYLOAD_COMMANDS = [
   'SAVE_DEEPSEEK_API_KEY',
+  'SAVE_JEV_API_KEY',
   'SAVE_MULTIMODAL_SETTINGS',
   'ANALYZE_MULTIMODAL_MEDIA',
   'CHAT_SUBMIT_PROMPT',
@@ -73,7 +77,7 @@ const extensionContext: RuntimeMessageContext = {
 };
 
 describe('R4.3 DeepSeek runtime ownership', () => {
-  it('creates exactly the assigned 16 typed handlers and eight receiving decoders', () => {
+  it('creates exactly the assigned 19 typed handlers and nine receiving decoders', () => {
     const handlers = createDeepSeekRuntimeHandlers({
       auth: createAuthDependencies(),
       multimodal: createMultimodalDependencies(),
@@ -86,8 +90,8 @@ describe('R4.3 DeepSeek runtime ownership', () => {
     });
     const types = handlers.map((handler) => handler.type);
 
-    expect(types).toHaveLength(16);
-    expect(new Set(types).size).toBe(16);
+    expect(types).toHaveLength(19);
+    expect(new Set(types).size).toBe(19);
     expect([...types].sort()).toEqual([...R43_COMMANDS].sort());
     expect(Object.keys(DEEPSEEK_RUNTIME_PAYLOAD_DECODERS).sort())
       .toEqual([...R43_PAYLOAD_COMMANDS].sort());
@@ -217,6 +221,33 @@ describe('DeepSeek auth handlers', () => {
     })).rejects.toThrow('menus unavailable');
     expect(events).toEqual(['save', 'reset', 'menus']);
     expect(dependencies.saveDeepSeekApiKey).toHaveBeenCalledWith(' key ');
+  });
+
+  it('keeps a Jev key out of chat session, context menu, and auth status side effects', async () => {
+    const dependencies = createAuthDependencies();
+    const handlers = createDeepSeekAuthRuntimeHandlers(dependencies);
+
+    await expect(dispatch(handlers, {
+      type: 'SAVE_JEV_API_KEY',
+      payload: { apiKey: ' jev-key ' },
+    })).resolves.toEqual({ ok: true, configured: true });
+    expect(dependencies.saveJevApiKey).toHaveBeenCalledWith(' jev-key ');
+    expect(dependencies.saveDeepSeekApiKey).not.toHaveBeenCalled();
+    expect(dependencies.resetChatSession).not.toHaveBeenCalled();
+    expect(dependencies.refreshContextMenus).not.toHaveBeenCalled();
+    expect(dependencies.broadcastChatAuthStatus).not.toHaveBeenCalled();
+
+    await expect(dispatch(handlers, { type: 'CLEAR_JEV_API_KEY' }))
+      .resolves.toEqual({ ok: true, configured: false });
+    expect(dependencies.clearJevApiKey).toHaveBeenCalledOnce();
+    expect(dependencies.clearDeepSeekApiKey).not.toHaveBeenCalled();
+    expect(dependencies.resetChatSession).not.toHaveBeenCalled();
+    expect(dependencies.refreshContextMenus).not.toHaveBeenCalled();
+    expect(dependencies.broadcastChatAuthStatus).not.toHaveBeenCalled();
+
+    await expect(dispatch(handlers, { type: 'GET_JEV_API_KEY_STATUS' }))
+      .resolves.toEqual({ ok: true, configured: false });
+    expect(dependencies.hasJevApiKey).toHaveBeenCalledOnce();
   });
 });
 
@@ -734,6 +765,9 @@ function createAuthDependencies(): DeepSeekAuthRuntimeHandlerDependencies {
     hasDeepSeekApiKey: vi.fn(async () => false),
     saveDeepSeekApiKey: vi.fn(async () => undefined),
     clearDeepSeekApiKey: vi.fn(async () => undefined),
+    hasJevApiKey: vi.fn(async () => false),
+    saveJevApiKey: vi.fn(async () => undefined),
+    clearJevApiKey: vi.fn(async () => undefined),
     resetChatSession: vi.fn(async () => undefined),
     refreshContextMenus: vi.fn(async () => undefined),
     getChatAuthStatus: vi.fn(async () => ({

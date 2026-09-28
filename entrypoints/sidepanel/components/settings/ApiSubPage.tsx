@@ -73,6 +73,66 @@ export default function ApiSubPage({ state }: { state: SettingsState }) {
       </SettingsSection>
 
       <SettingsSection
+        title={t('sidepanel.settings.jevApiKeyTitle')}
+        description={t('sidepanel.settings.jevApiKeyDescription')}
+      >
+        <div className="flex justify-between items-start gap-3">
+          <div className="text-[11px]" style={{ color: 'var(--ds-text-tertiary)' }}>
+            {t('sidepanel.settings.jevApiKeyDescription')}
+          </div>
+          <StatusBadge
+            configured={state.jevApiKeyConfigured}
+            configuredLabel={t('sidepanel.settings.configured')}
+            notConfiguredLabel={t('sidepanel.settings.notConfigured')}
+          />
+        </div>
+
+        <TextField
+          type="password"
+          value={state.jevApiKeyInput}
+          placeholder={state.jevApiKeyConfigured ? t('sidepanel.settings.jevApiKeyReplacePlaceholder') : 'sk-...'}
+          onChange={state.setJevApiKeyInput}
+          onKeyDown={(e) => e.key === 'Enter' && state.handleSaveJevApiKey({
+            apiKeyRequired: t('sidepanel.settings.jevApiKeyRequired'),
+            saveFailed: t('sidepanel.settings.saveFailed'),
+            apiKeySaved: t('sidepanel.settings.jevApiKeySaved'),
+          })}
+          trailing={
+            <button
+              onClick={() => state.handleSaveJevApiKey({
+                apiKeyRequired: t('sidepanel.settings.jevApiKeyRequired'),
+                saveFailed: t('sidepanel.settings.saveFailed'),
+                apiKeySaved: t('sidepanel.settings.jevApiKeySaved'),
+              })}
+              disabled={!state.jevApiKeyInput.trim() || state.jevApiKeyStatus === 'saving'}
+              className="ds-btn-secondary shrink-0 px-3 py-2 text-[11px] font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
+            >
+              {state.jevApiKeyStatus === 'saving' ? t('sidepanel.settings.saving') : t('common.save')}
+            </button>
+          }
+        />
+
+        {state.jevApiKeyConfigured && (
+          <button
+            onClick={() => state.handleClearJevApiKey(
+              t('sidepanel.settings.clearFailed'),
+              t('sidepanel.settings.jevApiKeyCleared'),
+            )}
+            disabled={state.jevApiKeyStatus === 'clearing'}
+            className="ds-btn-secondary w-full py-2 text-[11px] font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
+          >
+            {state.jevApiKeyStatus === 'clearing' ? t('sidepanel.settings.clearing') : t('sidepanel.settings.clearJevApiKey')}
+          </button>
+        )}
+
+        {state.jevApiKeyMessage && (
+          <StatusMessage tone={state.jevApiKeyStatus === 'error' ? 'error' : 'success'}>
+            {state.jevApiKeyMessage}
+          </StatusMessage>
+        )}
+      </SettingsSection>
+
+      <SettingsSection
         title={t('sidepanel.settings.multimodalApi')}
         description={t('sidepanel.settings.multimodalApiDescription')}
       >

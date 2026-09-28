@@ -36,6 +36,7 @@ export type DecodedMultimodalAnalyzeRequest =
 
 interface DecodedDeepSeekRuntimePayloads {
   SAVE_DEEPSEEK_API_KEY: { apiKey: string };
+  SAVE_JEV_API_KEY: { apiKey: string };
   SAVE_MULTIMODAL_SETTINGS: MultimodalSettingsPatch;
   ANALYZE_MULTIMODAL_MEDIA: DecodedMultimodalAnalyzeRequest;
   CHAT_SUBMIT_PROMPT: {
@@ -66,6 +67,13 @@ export const DEEPSEEK_RUNTIME_PAYLOAD_DECODERS: DeepSeekRuntimePayloadDecoderMap
     const payload = recordValue(value, 'SAVE_DEEPSEEK_API_KEY.payload');
     if (typeof payload.apiKey !== 'string') {
       throw new Error('SAVE_DEEPSEEK_API_KEY.payload.apiKey must be a string.');
+    }
+    return { apiKey: payload.apiKey };
+  },
+  SAVE_JEV_API_KEY(value) {
+    const payload = recordValue(value, 'SAVE_JEV_API_KEY.payload');
+    if (typeof payload.apiKey !== 'string') {
+      throw new Error('SAVE_JEV_API_KEY.payload.apiKey must be a string.');
     }
     return { apiKey: payload.apiKey };
   },

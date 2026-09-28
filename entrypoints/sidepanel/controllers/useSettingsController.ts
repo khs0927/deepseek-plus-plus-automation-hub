@@ -168,6 +168,12 @@ export function useSettingsController() {
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('idle');
   const [apiKeyMessage, setApiKeyMessage] = useState('');
 
+  // --- jev api key ---
+  const [jevApiKeyConfigured, setJevApiKeyConfigured] = useState(false);
+  const [jevApiKeyInput, setJevApiKeyInput] = useState('');
+  const [jevApiKeyStatus, setJevApiKeyStatus] = useState<ApiKeyStatus>('idle');
+  const [jevApiKeyMessage, setJevApiKeyMessage] = useState('');
+
   // --- multimodal ---
   const [multimodalConfigured, setMultimodalConfigured] = useState<MultimodalSettingsStatus>(DEFAULT_MULTIMODAL);
   const [openaiApiKeyInput, setOpenaiApiKeyInput] = useState('');
@@ -265,7 +271,7 @@ export function useSettingsController() {
     let cancelled = false;
     const initialPetLoadGeneration = ++petLoadGenerationRef.current;
     (async () => {
-      const [chatOn, floatingState, keyStatus, mmStatus, memories, cfg, syncCfg, modelType, bgCfg, petCfg, mcpRequestTimeout] = await Promise.all([
+      const [chatOn, floatingState, keyStatus, jevKeyStatus, mmStatus, memories, cfg, syncCfg, modelType, bgCfg, petCfg, mcpRequestTimeout] = await Promise.all([
         getChatEnabled().catch((error) => {
           console.error('DeepSeek++ failed to read sidepanel chat setting', error);
           return false;
@@ -276,6 +282,8 @@ export function useSettingsController() {
         }),
         sidepanelRuntimeClient.request({ type: 'GET_DEEPSEEK_API_KEY_STATUS' })
           .catch(settingsLoadFallback('DeepSeek API key status', undefined)),
+        sidepanelRuntimeClient.request({ type: 'GET_JEV_API_KEY_STATUS' })
+          .catch(settingsLoadFallback('Jev API key status', undefined)),
         sidepanelRuntimeClient.request({ type: 'GET_MULTIMODAL_SETTINGS_STATUS' })
           .catch(settingsLoadFallback('multimodal status', undefined)),
         libraryController.getMemories()
@@ -302,6 +310,7 @@ export function useSettingsController() {
       setChatEnabledState(chatOn);
       if (floatingState) setFloatingChatRuntimeState(floatingState);
       setApiKeyConfigured((keyStatus as { configured?: boolean } | undefined)?.configured === true);
+      setJevApiKeyConfigured((jevKeyStatus as { configured?: boolean } | undefined)?.configured === true);
       const mm = mmStatus as ({ ok?: boolean } & MultimodalSettingsStatus) | undefined;
       if (mm?.ok) syncMultimodalStatus(mm);
       setMemoryCount(memories.length);
@@ -427,6 +436,56 @@ export function useSettingsController() {
       } catch (error) {
         setApiKeyStatus('error');
         setApiKeyMessage(error instanceof Error ? error.message : clearFailed);
+      }
+    },
+    [],
+  );
+
+  // --- jev api key ---
+  const handleSaveJevApiKey = useCallback(
+    async (labels: {
+      apiKeyRequired: string;
+      saveFailed: string;
+      apiKeySaved: string;
+    }) => {
+      const apiKey = jevApiKeyInput.trim();
+      if (!apiKey) {
+        setJevApiKeyStatus('error');
+        setJevApiKeyMessage(labels.apiKeyRequired);
+        return;
+      }
+      setJevApiKeyStatus('saving');
+      setJevApiKeyMessage('');
+      try {
+        await sidepanelRuntimeClient.request({
+          type: 'SAVE_JEV_API_KEY',
+          payload: { apiKey },
+        });
+        setJevApiKeyConfigured(true);
+        setJevApiKeyInput('');
+        setJevApiKeyStatus('success');
+        setJevApiKeyMessage(labels.apiKeySaved);
+      } catch (error) {
+        setJevApiKeyStatus('error');
+        setJevApiKeyMessage(error instanceof Error ? error.message : labels.saveFailed);
+      }
+    },
+    [jevApiKeyInput],
+  );
+
+  const handleClearJevApiKey = useCallback(
+    async (clearFailed: string, apiKeyCleared: string) => {
+      setJevApiKeyStatus('clearing');
+      setJevApiKeyMessage('');
+      try {
+        await sidepanelRuntimeClient.request({ type: 'CLEAR_JEV_API_KEY' });
+        setJevApiKeyConfigured(false);
+        setJevApiKeyInput('');
+        setJevApiKeyStatus('success');
+        setJevApiKeyMessage(apiKeyCleared);
+      } catch (error) {
+        setJevApiKeyStatus('error');
+        setJevApiKeyMessage(error instanceof Error ? error.message : clearFailed);
       }
     },
     [],
@@ -1020,6 +1079,14 @@ export function useSettingsController() {
     apiKeyMessage,
     handleSaveApiKey,
     handleClearApiKey,
+    // jev api key
+    jevApiKeyConfigured,
+    jevApiKeyInput,
+    setJevApiKeyInput,
+    jevApiKeyStatus,
+    jevApiKeyMessage,
+    handleSaveJevApiKey,
+    handleClearJevApiKey,
     // multimodal
     multimodalConfigured,
     openaiApiKeyInput,

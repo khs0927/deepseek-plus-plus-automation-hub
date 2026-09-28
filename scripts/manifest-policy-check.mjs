@@ -35,6 +35,8 @@ const expectedHostPermissions = [
   'https://www.googleapis.com/*',
   'https://login.microsoftonline.com/*',
   'https://graph.microsoft.com/*',
+  'https://opencode.ai/*',
+  'https://api.typesafe.ai/*',
 ];
 const expectedOptionalHostPermissions = ['http://*/*', 'https://*/*'];
 const expectedLocalizedManifest = {
@@ -181,6 +183,8 @@ for (const hostPermission of [
   'https://www.googleapis.com/*',
   'https://login.microsoftonline.com/*',
   'https://graph.microsoft.com/*',
+  'https://opencode.ai/*',
+  'https://api.typesafe.ai/*',
 ]) {
   assertIncludes(privacyPolicy, `\`${hostPermission}\``, `privacy policy must document ${hostPermission}`);
   assertIncludes(submission, hostPermission, `Chrome Web Store submission notes must justify ${hostPermission}`);

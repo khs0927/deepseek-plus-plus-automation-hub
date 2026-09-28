@@ -186,6 +186,12 @@ Allows optional Google Drive sync to complete user-approved OAuth sign-in and re
 Allows optional OneDrive sync to complete user-approved OAuth sign-in and read/write the extension's sync file in the user's OneDrive app folder. This is used only after the user selects OneDrive sync and provides their own OAuth app credentials.
 ```
 
+#### Host permissions: `https://opencode.ai/*`, `https://api.typesafe.ai/*`
+
+```
+Allows the built-in Jev decision tool to reach its decision endpoints. The extension sends the decision state text and the narrow choice/noul/score questions supplied in that single tool call to the free endpoint first, and receives typed values with probabilities back. Only after a retryable failure, and only if the user has configured a Jev API Key, is the same request sent to the paid endpoint with that key attached as an Authorization header. No conversation history, page content, or file contents are transmitted, and the only credential that ever leaves the extension is that user-configured Jev API Key on that fallback call; the decision result is advisory: it does not grant permission, execute anything, or verify a claim.
+```
+
 #### Optional host permissions: `http://*/*`, `https://*/*`
 
 ```text

@@ -10,6 +10,8 @@
 // never executes a capability and never asserts external truth. Runtime code
 // always owns authorization, scheduling, execution and outcome verification.
 
+import type { JevDecisionQuestionSpec } from './jev-contract';
+
 export const DECISION_KINDS = [
   'capability_relevance',
   'capability_primary',
@@ -80,6 +82,13 @@ export interface DecisionRequest {
   /** Redacted hash of the underlying state; never the raw sensitive state. */
   stateHash?: string;
   policy?: DecisionPolicyHint;
+  /**
+   * Narrow choice/noul/score questions carried verbatim. Callers that already
+   * know the System One question shape set this so a provider forwards it
+   * instead of re-deriving a ranking from `candidates`; when it is absent a
+   * provider falls back to ranking `candidates` against `questions`.
+   */
+  typedQuestions?: readonly JevDecisionQuestionSpec[];
 }
 
 export interface DecisionScore {
@@ -125,6 +134,7 @@ export interface DecisionResult {
  * compare routes without inferring call sites.
  */
 export const DECISION_SURFACES = [
+  'agent_decide',
   'mcp_adaptive_rank',
   'mcp_discover_rank',
   'result_judge',

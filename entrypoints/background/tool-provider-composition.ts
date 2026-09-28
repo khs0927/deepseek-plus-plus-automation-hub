@@ -46,6 +46,11 @@ import {
 } from '../../core/tool/web-search';
 import { getWebToolSettings } from '../../core/tool/web-settings';
 import {
+  JEV_DECIDE_TOOL_PROVIDER_ID,
+  createJevDecideToolDescriptors,
+  executeJevDecideToolCall,
+} from '../../core/tool/jev-decide';
+import {
   MCP_CAPABILITY_TOOL_PROVIDER,
   createMcpCapabilityToolDescriptors,
   disambiguateMcpCapabilityToolDescriptors,
@@ -128,6 +133,11 @@ export function createProductionToolProviderRegistry(): ToolProviderRegistry {
         return createBrowserControlToolDescriptors(locale);
       },
       (call, _descriptor, { locale }) => executeBrowserControlToolCall(call, locale),
+    ),
+    createLocalProvider(
+      JEV_DECIDE_TOOL_PROVIDER_ID,
+      ({ locale }) => createJevDecideToolDescriptors(locale),
+      (call, _descriptor, { locale, signal }) => executeJevDecideToolCall(call, locale, { signal }),
     ),
     createMcpCapabilityProvider(),
     createMcpProvider(),
