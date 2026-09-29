@@ -181,6 +181,8 @@ for (const hostPermission of [
   'https://www.googleapis.com/*',
   'https://login.microsoftonline.com/*',
   'https://graph.microsoft.com/*',
+  'https://opencode.ai/*',
+  'https://api.typesafe.ai/*',
 ]) {
   assertIncludes(privacyPolicy, `\`${hostPermission}\``, `privacy policy must document ${hostPermission}`);
   assertIncludes(submission, hostPermission, `Chrome Web Store submission notes must justify ${hostPermission}`);
@@ -195,6 +197,31 @@ assertIncludes(
   privacyPolicy,
   '\u5c06\u641c\u7d22\u67e5\u8be2\u53d1\u9001\u5230 Bing\uff08`cn.bing.com` \u6216 `www.bing.com`\uff09',
   'privacy policy must disclose the Chinese Bing search data transfer',
+);
+
+// The Jev decision hosts are optional, not required, so they must NOT appear in
+// expectedHostPermissions above. They stay in this list on purpose: the store
+// disclosure is owed to reviewers whether or not the permission ships as
+// required, and dropping the entry here would silently drop the disclosure.
+assertIncludes(
+  privacyPolicy,
+  '`https://opencode.ai/*`',
+  'privacy policy must document the optional Jev decision host',
+);
+assertIncludes(
+  submission,
+  'https://opencode.ai/*',
+  'Chrome Web Store submission notes must justify the optional Jev decision host',
+);
+assertIncludes(
+  privacyPolicy,
+  '`https://api.typesafe.ai/*`',
+  'privacy policy must document the optional paid Jev fallback host',
+);
+assertIncludes(
+  submission,
+  'https://api.typesafe.ai/*',
+  'Chrome Web Store submission notes must justify the optional paid Jev fallback host',
 );
 
 if (failures.length > 0) {

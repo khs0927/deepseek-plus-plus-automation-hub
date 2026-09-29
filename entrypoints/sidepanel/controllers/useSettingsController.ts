@@ -5,6 +5,7 @@ import {
   normalizeBackgroundConfig,
 } from '../../../core/background/config';
 import { getChatEnabled, setChatEnabled } from '../../../core/chat/store';
+import { JEV_HOST_ORIGINS } from '../../../core/tool/jev-decide';
 import type { FloatingChatRuntimeState } from '../../../core/floating-chat/runtime-state';
 import { decodeRuntimeConfigResponse } from '../../../core/messaging/bootstrap-client';
 import {
@@ -168,6 +169,20 @@ export function useSettingsController() {
   const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus>('idle');
   const [apiKeyMessage, setApiKeyMessage] = useState('');
 
+  // --- jev api key ---
+  const [jevApiKeyConfigured, setJevApiKeyConfigured] = useState(false);
+  const [jevApiKeyInput, setJevApiKeyInput] = useState('');
+  const [jevApiKeyStatus, setJevApiKeyStatus] = useState<ApiKeyStatus>('idle');
+  const [jevApiKeyMessage, setJevApiKeyMessage] = useState('');
+  // Optional host access for the Jev decision route. The hosts are not required
+  // permissions, so the user grants or revokes them explicitly from here;
+  // chrome.permissions.request needs this user gesture and cannot be called from
+  // the background service worker.
+  const [jevHostAccessGranted, setJevHostAccessGranted] = useState(false);
+  const [jevHostAccessPending, setJevHostAccessPending] = useState(false);
+  const [jevHostAccessStatus, setJevHostAccessStatus] = useState<ApiKeyStatus>('idle');
+  const [jevHostAccessMessage, setJevHostAccessMessage] = useState('');
+
   // --- multimodal ---
   const [multimodalConfigured, setMultimodalConfigured] = useState<MultimodalSettingsStatus>(DEFAULT_MULTIMODAL);
   const [openaiApiKeyInput, setOpenaiApiKeyInput] = useState('');
@@ -265,7 +280,7 @@ export function useSettingsController() {
     let cancelled = false;
     const initialPetLoadGeneration = ++petLoadGenerationRef.current;
     (async () => {
-      const [chatOn, floatingState, keyStatus, mmStatus, memories, cfg, syncCfg, modelType, bgCfg, petCfg, mcpRequestTimeout] = await Promise.all([
+      const [chatOn, floatingState, keyStatus, jevKeyStatus, mmStatus, memories, cfg, syncCfg, modelType, bgCfg, petCfg, mcpRequestTimeout] = await Promise.all([
         getChatEnabled().catch((error) => {
           console.error('DeepSeek++ failed to read sidepanel chat setting', error);
           return false;
@@ -276,6 +291,8 @@ export function useSettingsController() {
         }),
         sidepanelRuntimeClient.request({ type: 'GET_DEEPSEEK_API_KEY_STATUS' })
           .catch(settingsLoadFallback('DeepSeek API key status', undefined)),
+        sidepanelRuntimeClient.request({ type: 'GET_JEV_API_KEY_STATUS' })
+          .catch(settingsLoadFallback('Jev API key status', undefined)),
         sidepanelRuntimeClient.request({ type: 'GET_MULTIMODAL_SETTINGS_STATUS' })
           .catch(settingsLoadFallback('multimodal status', undefined)),
         libraryController.getMemories()
@@ -302,6 +319,7 @@ export function useSettingsController() {
       setChatEnabledState(chatOn);
       if (floatingState) setFloatingChatRuntimeState(floatingState);
       setApiKeyConfigured((keyStatus as { configured?: boolean } | undefined)?.configured === true);
+      setJevApiKeyConfigured((jevKeyStatus as { configured?: boolean } | undefined)?.configured === true);
       const mm = mmStatus as ({ ok?: boolean } & MultimodalSettingsStatus) | undefined;
       if (mm?.ok) syncMultimodalStatus(mm);
       setMemoryCount(memories.length);
@@ -430,6 +448,101 @@ export function useSettingsController() {
       }
     },
     [],
+  );
+
+  // --- jev api key ---
+  const handleSaveJevApiKey = useCallback(
+    async (labels: {
+      apiKeyRequired: string;
+      saveFailed: string;
+      apiKeySaved: string;
+    }) => {
+      const apiKey = jevApiKeyInput.trim();
+      if (!apiKey) {
+        setJevApiKeyStatus('error');
+        setJevApiKeyMessage(labels.apiKeyRequired);
+        return;
+      }
+      setJevApiKeyStatus('saving');
+      setJevApiKeyMessage('');
+      try {
+        await sidepanelRuntimeClient.request({
+          type: 'SAVE_JEV_API_KEY',
+          payload: { apiKey },
+        });
+        setJevApiKeyConfigured(true);
+        setJevApiKeyInput('');
+        setJevApiKeyStatus('success');
+        setJevApiKeyMessage(labels.apiKeySaved);
+      } catch (error) {
+        setJevApiKeyStatus('error');
+        setJevApiKeyMessage(error instanceof Error ? error.message : labels.saveFailed);
+      }
+    },
+    [jevApiKeyInput],
+  );
+
+  const handleClearJevApiKey = useCallback(
+    async (clearFailed: string, apiKeyCleared: string) => {
+      setJevApiKeyStatus('clearing');
+      setJevApiKeyMessage('');
+      try {
+        await sidepanelRuntimeClient.request({ type: 'CLEAR_JEV_API_KEY' });
+        setJevApiKeyConfigured(false);
+        setJevApiKeyInput('');
+        setJevApiKeyStatus('success');
+        setJevApiKeyMessage(apiKeyCleared);
+      } catch (error) {
+        setJevApiKeyStatus('error');
+        setJevApiKeyMessage(error instanceof Error ? error.message : clearFailed);
+      }
+    },
+    [],
+  );
+
+  // --- jev host access (optional permission) ---
+
+  const refreshJevHostAccess = useCallback(async () => {
+    try {
+      const granted = await chrome.permissions.contains({ origins: JEV_HOST_ORIGINS });
+      setJevHostAccessGranted(granted);
+      return granted;
+    } catch {
+      // A check that throws is reported as "not granted" rather than assumed,
+      // so the tool stays blocked instead of silently claiming access.
+      setJevHostAccessGranted(false);
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshJevHostAccess();
+  }, [refreshJevHostAccess]);
+
+  const handleToggleJevHostAccess = useCallback(
+    async (labels: { enable: string; revoke: string; failed: string }) => {
+      setJevHostAccessPending(true);
+      setJevHostAccessMessage('');
+      try {
+        if (jevHostAccessGranted) {
+          const removed = await chrome.permissions.remove({ origins: JEV_HOST_ORIGINS });
+          setJevHostAccessGranted(removed);
+          setJevHostAccessStatus(removed ? 'success' : 'error');
+          if (removed) setJevHostAccessMessage(labels.revoke);
+        } else {
+          const requested = await chrome.permissions.request({ origins: JEV_HOST_ORIGINS });
+          setJevHostAccessGranted(requested);
+          setJevHostAccessStatus(requested ? 'success' : 'error');
+          if (requested) setJevHostAccessMessage(labels.enable);
+        }
+      } catch (error) {
+        setJevHostAccessStatus('error');
+        setJevHostAccessMessage(error instanceof Error ? error.message : labels.failed);
+      } finally {
+        setJevHostAccessPending(false);
+      }
+    },
+    [jevHostAccessGranted],
   );
 
   // --- multimodal ---
@@ -1020,6 +1133,19 @@ export function useSettingsController() {
     apiKeyMessage,
     handleSaveApiKey,
     handleClearApiKey,
+    // jev api key
+    jevApiKeyConfigured,
+    jevApiKeyInput,
+    setJevApiKeyInput,
+    jevApiKeyStatus,
+    jevApiKeyMessage,
+    handleSaveJevApiKey,
+    handleClearJevApiKey,
+    jevHostAccessGranted,
+    jevHostAccessPending,
+    jevHostAccessStatus,
+    jevHostAccessMessage,
+    handleToggleJevHostAccess,
     // multimodal
     multimodalConfigured,
     openaiApiKeyInput,

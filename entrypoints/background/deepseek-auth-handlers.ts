@@ -9,6 +9,9 @@ export interface DeepSeekAuthRuntimeHandlerDependencies {
   hasDeepSeekApiKey(): Promise<boolean>;
   saveDeepSeekApiKey(apiKey: string): Promise<void>;
   clearDeepSeekApiKey(): Promise<void>;
+  hasJevApiKey(): Promise<boolean>;
+  saveJevApiKey(apiKey: string): Promise<void>;
+  clearJevApiKey(): Promise<void>;
   resetChatSession(): Promise<void>;
   refreshContextMenus(): Promise<void>;
   getChatAuthStatus(preferredTabId?: number): Promise<ChatAuthStatus>;
@@ -35,6 +38,21 @@ export function createDeepSeekAuthRuntimeHandlers(
       await dependencies.resetChatSession();
       await dependencies.refreshContextMenus();
       await dependencies.broadcastChatAuthStatus(context.tabId);
+      return { ok: true as const, configured: false as const };
+    }),
+    // The Jev key authorizes only the paid decision fallback. It has no
+    // relationship to chat sessions, context menus, or DeepSeek auth status,
+    // so these handlers must not trigger the DeepSeek side effects above.
+    definePayloadlessRuntimeCommandHandler('GET_JEV_API_KEY_STATUS', async () => ({
+      ok: true as const,
+      configured: await dependencies.hasJevApiKey(),
+    })),
+    defineDeepSeekPayloadRuntimeCommandHandler('SAVE_JEV_API_KEY', async (payload) => {
+      await dependencies.saveJevApiKey(payload.apiKey);
+      return { ok: true as const, configured: true as const };
+    }),
+    definePayloadlessRuntimeCommandHandler('CLEAR_JEV_API_KEY', async () => {
+      await dependencies.clearJevApiKey();
       return { ok: true as const, configured: false as const };
     }),
     definePayloadlessRuntimeCommandHandler('GET_AUTH_STATUS', (context) => (

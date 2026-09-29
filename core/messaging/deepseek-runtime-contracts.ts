@@ -69,6 +69,18 @@ export interface DeepSeekRuntimeCommandContracts {
     request: { type: 'CLEAR_DEEPSEEK_API_KEY' };
     response: { ok: true; configured: false };
   };
+  GET_JEV_API_KEY_STATUS: {
+    request: { type: 'GET_JEV_API_KEY_STATUS' };
+    response: { ok: true; configured: boolean };
+  };
+  SAVE_JEV_API_KEY: {
+    request: { type: 'SAVE_JEV_API_KEY'; payload: { apiKey: string } };
+    response: { ok: true; configured: true };
+  };
+  CLEAR_JEV_API_KEY: {
+    request: { type: 'CLEAR_JEV_API_KEY' };
+    response: { ok: true; configured: false };
+  };
   GET_MULTIMODAL_SETTINGS_STATUS: {
     request: DeclaredRuntimeRequest<'GET_MULTIMODAL_SETTINGS_STATUS'>;
     response: { ok: true } & MultimodalSettingsStatus;

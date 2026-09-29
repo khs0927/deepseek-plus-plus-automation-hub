@@ -212,4 +212,17 @@ export const tool = {
     evaluateScriptTitle: '执行脚本',
     evaluateScriptDescription: '在受控页面中执行 JavaScript 表达式并返回可序列化结果。',
   },
+  jev: {
+    providerName: 'DeepSeek++ Jev 决策',
+    decideTitle: '请求 Jev 决策',
+    decideDescription: '针对同一份状态提出 choice/noul/score 窄问题，并返回带概率的类型化结果。仅作参考：它不授予权限、不执行任何操作、不验证事实，因此不确定或后果重大的结果应交给用户判断。状态文本会发送到外部决策端点。',
+    stateDescription: '所有问题共同评估的状态。',
+    questionsDescription: '最多 8 个窄问题。每项包含 id、instructions，以及 type=choice（带 criteria 对象）或 type=noul 或 type=score（带有序 criteria 列表）。',
+    unsupported: '不支持的 Jev 工具',
+    invalidPayload: 'jev_decide 参数错误',
+    complete: 'Jev 返回了 {count} 个答案',
+    unavailable: 'Jev 决策端点不可用',
+    hostPermissionRequired: 'Jev 需要可选的主机访问权限',
+    hostPermissionDetail: '请在“设置 > API”中开启“Jev 决策主机访问”，该工具才能访问其决策服务。',
+  },
 } as const;

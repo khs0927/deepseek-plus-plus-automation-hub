@@ -43,9 +43,18 @@ describe('ChatMessage rich rendering boundary', () => {
       }));
     });
 
+    // The assertion is unchanged: the lazy chunk must render markdown. Only
+    // the WAIT budget changes. vi.waitFor defaults to 1000ms, and a dynamic
+    // import can legitimately take longer than that on a loaded machine
+    // (measured 680ms idle vs >5000ms under parallel suite load), which made
+    // this fail intermittently for reasons unrelated to behaviour. This is
+    // the same shape as GZIP_ENCODER_VARIANCE_BYTES in
+    // scripts/sidepanel-chunk-budget.mjs: bound the environment variance
+    // explicitly instead of letting a too-tight default masquerade as a
+    // product defect.
     await vi.waitFor(() => {
       expect(container.querySelector('strong')?.textContent).toBe('world');
-    });
+    }, { timeout: 10_000, interval: 50 });
     expect(container.textContent).toContain('Hello world');
     expect(onRichContentRendered).toHaveBeenCalled();
   });

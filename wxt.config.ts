@@ -87,6 +87,15 @@ export function createManifest(env: ConfigEnv): UserManifest {
       'https://www.googleapis.com/*',
       'https://login.microsoftonline.com/*',
       'https://graph.microsoft.com/*',
+      // Jev decision endpoints are deliberately NOT listed here. The built-in
+      // jev_decide tool reaches opencode.ai (and, only after a retryable free
+      // failure and only when the user saved a key, api.typesafe.ai) through
+      // the optional host permissions the user grants explicitly in Settings,
+      // the same way the built-in web_fetch tool works. Keeping them required
+      // would grant every installed user permanent third-party network access
+      // to two hosts they may never use, and the decision state sent there is
+      // model-authored text. Both hosts stay documented in the store privacy
+      // policy and submission notes regardless of the permission being optional.
     ],
     content_security_policy: {
       extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",

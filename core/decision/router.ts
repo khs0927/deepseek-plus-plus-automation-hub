@@ -1,4 +1,5 @@
 import type { DecisionProvider } from './provider';
+import type { JevDecisionQuestionSpec } from './jev-contract';
 import {
   applyDecisionThreshold,
   classifyDescriptor,
@@ -47,6 +48,8 @@ export interface RouteRequest {
   intent: string;
   candidates: readonly DecisionCandidate[];
   questions?: readonly DecisionQuestion[];
+  /** Narrow System One questions forwarded verbatim; see DecisionRequest. */
+  typedQuestions?: readonly JevDecisionQuestionSpec[];
   policy?: DecisionPolicyHint;
   /** Pinned ids always survive; used for explicit user/tool selection. */
   pinnedIds?: ReadonlySet<string>;
@@ -54,6 +57,8 @@ export interface RouteRequest {
   requestId?: string;
   taskId?: string;
   chatSessionId?: string | null;
+  /** Caller budget forwarded to the provider as the per-attempt deadline. */
+  timeoutMs?: number;
   /** When true, no decision is consumed, only traced (Shadow Mode). */
   shadow?: boolean;
 }
@@ -91,7 +96,9 @@ export function createDecisionRouter(options: DecisionRouterOptions): DecisionRo
         intent: request.intent,
         candidates: request.candidates,
         questions: request.questions ?? [],
+        typedQuestions: request.typedQuestions,
         stateHash: hashDecisionState(request.intent),
+        timeoutMs: request.timeoutMs,
         policy: {
           minConfidence: threshold,
           maxSelections,

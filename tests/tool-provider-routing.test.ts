@@ -90,6 +90,7 @@ describe('tool provider routing', () => {
       'project_context_propose',
       'project_context_resolve',
       'project_runs_list',
+      'jev_decide',
       'mcp_discover',
       'mcp_describe',
       'mcp_invoke',
