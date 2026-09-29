@@ -81,6 +81,13 @@ export interface SystemOneDecisionProviderOptions {
    * and the provider then reports the free route's own failure reason.
    */
   getApiKey: () => Promise<string | null>;
+  /**
+   * Whether the paid host permission is actually granted. TypeSafe is a
+   * different host with its own optional permission, so the fallback may only
+   * be attempted when it is. Without this option the provider assumes the grant
+   * exists, which is the pre-existing behaviour.
+   */
+  hasPaidHostPermission?: () => Promise<boolean>;
 }
 
 interface SystemOneAttempt {
@@ -139,6 +146,22 @@ export function createSystemOneDecisionProvider(
       }
 
       const freeReason = describeAttemptFailure(freeAttempt);
+
+      // TypeSafe is a different host with its own optional permission. Without
+      // that grant the fallback cannot work at all, so say so instead of issuing
+      // a request that would fail opaquely and look like a provider outage.
+      const paidHostAllowed = options.hasPaidHostPermission
+        ? await readPaidHostPermission(options.hasPaidHostPermission)
+        : true;
+      if (!paidHostAllowed) {
+        return unavailable(
+          SYSTEM_ONE_PROVIDER_ID,
+          `${freeReason}:paid_host_permission_missing`,
+          now() - startedAt,
+          freeAttempt,
+        );
+      }
+
       const fallbackKey = await readFallbackKey(options.getApiKey);
       if (fallbackKey === null) {
         // A transient free-route failure with no key configured. The free
@@ -526,6 +549,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * an empty result is treated as no key, so a whitespace-only entry never
  * becomes a bare `Bearer ` header.
  */
+async function readPaidHostPermission(
+  hasPaidHostPermission: () => Promise<boolean>,
+): Promise<boolean> {
+  try {
+    return await hasPaidHostPermission();
+  } catch {
+    // A permission check that throws is treated as "not granted", which keeps
+    // the missing grant visible instead of attempting a doomed request.
+    return false;
+  }
+}
+
 async function readFallbackKey(getApiKey: () => Promise<string | null>): Promise<string | null> {
   try {
     const key = await getApiKey();

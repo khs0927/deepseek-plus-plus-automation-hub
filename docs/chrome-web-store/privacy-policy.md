@@ -246,7 +246,7 @@ DeepSeek++ 请求以下 Chrome 权限：
 - `*://cn.bing.com/*` 和 `*://www.bing.com/*`：仅在用户请求联网搜索时运行内置搜索工具，并把结果标题、链接和摘要返回到当前 DeepSeek 对话。
 - `https://accounts.google.com/*`、`https://oauth2.googleapis.com/*` 和 `https://www.googleapis.com/*`：完成用户批准的 Google Drive 同步登录，并在用户的 Google Drive 应用数据空间读写扩展同步文件。
 - `https://login.microsoftonline.com/*` 和 `https://graph.microsoft.com/*`：完成用户批准的 OneDrive 同步登录，并在用户的 OneDrive 应用文件夹读写扩展同步文件。
-- `https://opencode.ai/*` 与 `https://api.typesafe.ai/*`：仅在模型调用内置 Jev 决策工具时使用。该次工具调用中给出的决策状态文本与若干窄问题先发送到免费决策端点。仅在出现可重试失败、且用户已配置 Jev API Key 时，同一请求才会发送到付费决策端点，该密钥以 Authorization 请求头发送至该端点。不会向任一端点发送对话历史、页面内容或文件。
+- `https://opencode.ai/*` 与 `https://api.typesafe.ai/*`（均为可选权限）：内置 Jev 决策工具需要它们才能访问决策端点，未开启时该工具不会运行。这两个权限不会随安装自动授予；用户需在“设置 > API”中开启“Jev 决策主机访问”，并可随时撤销。开启之前不会有任何数据发往这两个主机。模型调用该工具时，该次调用给出的决策状态文本与若干窄问题先发送到免费决策端点。仅在出现可重试失败、且用户已配置 Jev API Key 时，同一请求才会发送到付费决策端点，该密钥以 Authorization 请求头发送至该端点。不会向任一端点发送对话历史、页面内容或文件。
 - 可选的 `http://*/*` 和 `https://*/*` 主机权限：连接用户配置的 WebDAV 或 MCP 端点。扩展只会在需要时针对具体来源请求权限。
 
 ## 7. 用户控制

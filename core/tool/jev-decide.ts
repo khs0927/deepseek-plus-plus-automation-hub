@@ -46,6 +46,35 @@ export const JEV_DECIDE_TOOL_NAME = 'jev_decide';
 export const JEV_DECIDE_TOOL_DESCRIPTOR_ID = 'local:jev:jev_decide';
 export const JEV_DECIDE_TOOL_TIMEOUT_MS = 60_000;
 
+/** Optional host permission the free decision route needs. */
+export const JEV_FREE_HOST_ORIGIN = 'https://opencode.ai/*';
+/** Optional host permission the paid fallback additionally needs. */
+export const JEV_PAID_HOST_ORIGIN = 'https://api.typesafe.ai/*';
+export const JEV_HOST_PERMISSION_ERROR_CODE = 'jev_host_permission_required';
+
+/**
+ * Both optional origins in one place so the settings toggle, the tool gate and
+ * the provider gate cannot drift apart.
+ */
+export const JEV_HOST_ORIGINS: string[] = [JEV_FREE_HOST_ORIGIN, JEV_PAID_HOST_ORIGIN];
+
+/**
+ * Whether the user has granted a host permission.
+ *
+ * The Jev hosts are optional rather than required so that installing the
+ * extension does not hand every user permanent third-party network access.
+ * `chrome.permissions.request` needs a user gesture and cannot be called from
+ * the background service worker, so the grant happens from the side-panel
+ * Settings toggle and this is only a check.
+ */
+async function hasHostPermission(origin: string): Promise<boolean> {
+  try {
+    return await chrome.permissions.contains({ origins: [origin] });
+  } catch {
+    return false;
+  }
+}
+
 export const JEV_DECIDE_TOOL_PROVIDER: ToolProviderIdentity = {
   kind: 'local',
   id: JEV_DECIDE_TOOL_PROVIDER_ID,
@@ -122,6 +151,10 @@ export function createJevDecideRouter(): DecisionRouter {
   return createDecisionRouter({
     provider: createSystemOneDecisionProvider({
       getApiKey: getJevApiKey,
+      // The paid route is only attempted once its own host permission is
+      // actually granted, so a missing grant is reported as the free route's
+      // own failure rather than as an opaque cross-origin error.
+      hasPaidHostPermission: () => hasHostPermission(JEV_PAID_HOST_ORIGIN),
       timeoutMs: SYSTEM_ONE_DEFAULT_TIMEOUT_MS,
     }),
     traceSink: createInMemoryTraceSink(),
@@ -162,6 +195,23 @@ export async function executeJevDecideToolCall(
   }
 
   const { state, questions } = parsed.request;
+
+  if (!await hasHostPermission(JEV_FREE_HOST_ORIGIN)) {
+    return {
+      ok: false,
+      name: call.name,
+      provider,
+      summary: translate(locale, 'tool.jev.hostPermissionRequired'),
+      detail: translate(locale, 'tool.jev.hostPermissionDetail'),
+      error: {
+        code: JEV_HOST_PERMISSION_ERROR_CODE,
+        message: 'The Jev decision tool needs optional host access to opencode.ai. Enable it in Settings > API.',
+        // The user has to grant a permission; retrying on its own cannot help.
+        retryable: false,
+      },
+    };
+  }
+
   const route = options?.deps?.route ?? createJevDecideRouter().route;
 
   let outcome: RouteOutcome;

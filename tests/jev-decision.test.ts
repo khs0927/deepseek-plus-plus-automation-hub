@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildJevCandidateId,
   listJevQuestionOptions,
@@ -271,6 +271,37 @@ describe('createSystemOneDecisionProvider', () => {
     expect(result.modelAlias).toBe('jev-1.13-free-2026-05');
   });
 
+  it('does not attempt the paid route when its host permission is missing', async () => {
+    // Without the second optional grant the fallback cannot work, and issuing
+    // the request anyway would fail opaquely and look like an outage.
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'rate limited' }, 429));
+    const provider = createSystemOneDecisionProvider({
+      getApiKey: async () => 'secret-key',
+      hasPaidHostPermission: async () => false,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const result = await provider.evaluate(baseRequest);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    expect(result.fallbackReason).toBe('system_one_status_429:paid_host_permission_missing');
+  });
+
+  it('treats a permission check that throws as not granted', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'rate limited' }, 429));
+    const provider = createSystemOneDecisionProvider({
+      getApiKey: async () => 'secret-key',
+      hasPaidHostPermission: async () => { throw new Error('api unavailable'); },
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+
+    const result = await provider.evaluate(baseRequest);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.fallbackReason).toBe('system_one_status_429:paid_host_permission_missing');
+  });
+
   it('does not reach a second route when no key is configured', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ error: 'rate limited' }, 429));
     const provider = createSystemOneDecisionProvider({
@@ -481,6 +512,37 @@ describe('createSystemOneDecisionProvider', () => {
 });
 
 describe('executeJevDecideToolCall', () => {
+  beforeEach(() => {
+    // The tool refuses to run without the optional host grant, so the default
+    // test environment grants it. The ungranted case has its own test below.
+    vi.stubGlobal('chrome', {
+      permissions: { contains: vi.fn(async () => true) },
+    });
+  });
+
+  function ungrantHostAccess() {
+    vi.stubGlobal('chrome', {
+      permissions: { contains: vi.fn(async () => false) },
+    });
+  }
+
+  it('refuses to run when the optional host access is not granted', async () => {
+    ungrantHostAccess();
+    const route = vi.fn();
+
+    const result = await executeJevDecideToolCall(makeCall({
+      state: 'a state',
+      questions: [{ id: 'urgent', type: 'noul', instructions: 'urgent?' }],
+    }), LOCALE, { deps: { route: route as unknown as (request: RouteRequest) => never } });
+
+    expect(result.ok).toBe(false);
+    expect(result.error?.code).toBe('jev_host_permission_required');
+    // The user must grant a permission; retrying on its own cannot help, and no
+    // decision may be reported from a tool that never reached the network.
+    expect(result.error?.retryable).toBe(false);
+    expect(route).not.toHaveBeenCalled();
+  });
+
   function routerOverFetch(fetchImpl: ReturnType<typeof vi.fn>) {
     const traceSink = createInMemoryTraceSink();
     const router = createDecisionRouter({

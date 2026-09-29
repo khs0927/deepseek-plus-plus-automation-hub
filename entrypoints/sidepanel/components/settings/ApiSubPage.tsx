@@ -133,6 +133,44 @@ export default function ApiSubPage({ state }: { state: SettingsState }) {
       </SettingsSection>
 
       <SettingsSection
+        title={t('sidepanel.settings.jevHostAccessTitle')}
+        description={t('sidepanel.settings.jevHostAccessDescription')}
+      >
+        <div className="flex justify-between items-start gap-3">
+          <div className="text-[11px]" style={{ color: 'var(--ds-text-tertiary)' }}>
+            {state.jevHostAccessGranted
+              ? t('sidepanel.settings.jevHostAccessEnabled')
+              : t('sidepanel.settings.jevHostAccessDisabled')}
+          </div>
+          <StatusBadge
+            configured={state.jevHostAccessGranted}
+            configuredLabel={t('sidepanel.settings.configured')}
+            notConfiguredLabel={t('sidepanel.settings.notConfigured')}
+          />
+        </div>
+
+        <button
+          onClick={() => state.handleToggleJevHostAccess({
+            enable: t('sidepanel.settings.jevHostAccessEnable'),
+            revoke: t('sidepanel.settings.jevHostAccessRevoke'),
+            failed: t('sidepanel.settings.jevHostAccessFailed'),
+          })}
+          disabled={state.jevHostAccessPending}
+          className="ds-btn-secondary w-full py-2 text-[11px] font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
+        >
+          {state.jevHostAccessGranted
+            ? t('sidepanel.settings.jevHostAccessRevoke')
+            : t('sidepanel.settings.jevHostAccessEnable')}
+        </button>
+
+        {state.jevHostAccessMessage && (
+          <StatusMessage tone={state.jevHostAccessStatus === 'error' ? 'error' : 'success'}>
+            {state.jevHostAccessMessage}
+          </StatusMessage>
+        )}
+      </SettingsSection>
+
+      <SettingsSection
         title={t('sidepanel.settings.multimodalApi')}
         description={t('sidepanel.settings.multimodalApiDescription')}
       >

@@ -87,15 +87,15 @@ export function createManifest(env: ConfigEnv): UserManifest {
       'https://www.googleapis.com/*',
       'https://login.microsoftonline.com/*',
       'https://graph.microsoft.com/*',
-      // Jev decision endpoints. The built-in jev_decide tool sends the decision
-      // state to the free OpenCode Zen classifier first. Only after a
-      // retryable failure, and only when the user has configured a Jev API Key,
-      // may it fall back to the TypeSafe route, which sends that key as an
-      // Authorization header. Both hosts are fixed, so both are required
-      // rather than optional for the same CORS reason as the DeepSeek host
-      // above.
-      'https://opencode.ai/*',
-      'https://api.typesafe.ai/*',
+      // Jev decision endpoints are deliberately NOT listed here. The built-in
+      // jev_decide tool reaches opencode.ai (and, only after a retryable free
+      // failure and only when the user saved a key, api.typesafe.ai) through
+      // the optional host permissions the user grants explicitly in Settings,
+      // the same way the built-in web_fetch tool works. Keeping them required
+      // would grant every installed user permanent third-party network access
+      // to two hosts they may never use, and the decision state sent there is
+      // model-authored text. Both hosts stay documented in the store privacy
+      // policy and submission notes regardless of the permission being optional.
     ],
     content_security_policy: {
       extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'",

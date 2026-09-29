@@ -5,6 +5,7 @@ import {
   normalizeBackgroundConfig,
 } from '../../../core/background/config';
 import { getChatEnabled, setChatEnabled } from '../../../core/chat/store';
+import { JEV_HOST_ORIGINS } from '../../../core/tool/jev-decide';
 import type { FloatingChatRuntimeState } from '../../../core/floating-chat/runtime-state';
 import { decodeRuntimeConfigResponse } from '../../../core/messaging/bootstrap-client';
 import {
@@ -173,6 +174,14 @@ export function useSettingsController() {
   const [jevApiKeyInput, setJevApiKeyInput] = useState('');
   const [jevApiKeyStatus, setJevApiKeyStatus] = useState<ApiKeyStatus>('idle');
   const [jevApiKeyMessage, setJevApiKeyMessage] = useState('');
+  // Optional host access for the Jev decision route. The hosts are not required
+  // permissions, so the user grants or revokes them explicitly from here;
+  // chrome.permissions.request needs this user gesture and cannot be called from
+  // the background service worker.
+  const [jevHostAccessGranted, setJevHostAccessGranted] = useState(false);
+  const [jevHostAccessPending, setJevHostAccessPending] = useState(false);
+  const [jevHostAccessStatus, setJevHostAccessStatus] = useState<ApiKeyStatus>('idle');
+  const [jevHostAccessMessage, setJevHostAccessMessage] = useState('');
 
   // --- multimodal ---
   const [multimodalConfigured, setMultimodalConfigured] = useState<MultimodalSettingsStatus>(DEFAULT_MULTIMODAL);
@@ -489,6 +498,51 @@ export function useSettingsController() {
       }
     },
     [],
+  );
+
+  // --- jev host access (optional permission) ---
+
+  const refreshJevHostAccess = useCallback(async () => {
+    try {
+      const granted = await chrome.permissions.contains({ origins: JEV_HOST_ORIGINS });
+      setJevHostAccessGranted(granted);
+      return granted;
+    } catch {
+      // A check that throws is reported as "not granted" rather than assumed,
+      // so the tool stays blocked instead of silently claiming access.
+      setJevHostAccessGranted(false);
+      return false;
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshJevHostAccess();
+  }, [refreshJevHostAccess]);
+
+  const handleToggleJevHostAccess = useCallback(
+    async (labels: { enable: string; revoke: string; failed: string }) => {
+      setJevHostAccessPending(true);
+      setJevHostAccessMessage('');
+      try {
+        if (jevHostAccessGranted) {
+          const removed = await chrome.permissions.remove({ origins: JEV_HOST_ORIGINS });
+          setJevHostAccessGranted(removed);
+          setJevHostAccessStatus(removed ? 'success' : 'error');
+          if (removed) setJevHostAccessMessage(labels.revoke);
+        } else {
+          const requested = await chrome.permissions.request({ origins: JEV_HOST_ORIGINS });
+          setJevHostAccessGranted(requested);
+          setJevHostAccessStatus(requested ? 'success' : 'error');
+          if (requested) setJevHostAccessMessage(labels.enable);
+        }
+      } catch (error) {
+        setJevHostAccessStatus('error');
+        setJevHostAccessMessage(error instanceof Error ? error.message : labels.failed);
+      } finally {
+        setJevHostAccessPending(false);
+      }
+    },
+    [jevHostAccessGranted],
   );
 
   // --- multimodal ---
@@ -1087,6 +1141,11 @@ export function useSettingsController() {
     jevApiKeyMessage,
     handleSaveJevApiKey,
     handleClearJevApiKey,
+    jevHostAccessGranted,
+    jevHostAccessPending,
+    jevHostAccessStatus,
+    jevHostAccessMessage,
+    handleToggleJevHostAccess,
     // multimodal
     multimodalConfigured,
     openaiApiKeyInput,

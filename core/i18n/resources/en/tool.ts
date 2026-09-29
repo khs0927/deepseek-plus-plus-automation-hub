@@ -222,5 +222,7 @@ export const tool = {
     invalidPayload: 'Invalid jev_decide payload',
     complete: 'Jev returned {count} answer(s)',
     unavailable: 'The Jev decision endpoint is unavailable',
+    hostPermissionRequired: 'Jev needs optional host access',
+    hostPermissionDetail: 'Enable "Jev decision host access" in Settings > API to let this tool reach its decision service.',
   },
 } as const;

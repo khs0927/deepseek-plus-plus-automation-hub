@@ -222,5 +222,7 @@ export const tool = {
     invalidPayload: 'jev_decide 参数错误',
     complete: 'Jev 返回了 {count} 个答案',
     unavailable: 'Jev 决策端点不可用',
+    hostPermissionRequired: 'Jev 需要可选的主机访问权限',
+    hostPermissionDetail: '请在“设置 > API”中开启“Jev 决策主机访问”，该工具才能访问其决策服务。',
   },
 } as const;
