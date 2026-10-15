@@ -1,0 +1,156 @@
+{
+  "nodes": [
+    {
+      "id": "LAW_49",
+      "type": "Law",
+      "name": "건축법 제49조 (피난시설 및 용도제한)"
+    },
+    {
+      "id": "LAW_50",
+      "type": "Law",
+      "name": "건축법 제50조 (내화구조와 방화벽)"
+    },
+    {
+      "id": "LAW_51",
+      "type": "Law",
+      "name": "건축법 제51조 (방화지구 안의 건축물)"
+    },
+    {
+      "id": "LAW_52",
+      "type": "Law",
+      "name": "건축법 제52조 (마감재료)"
+    },
+    {
+      "id": "LAW_58",
+      "type": "Law",
+      "name": "건축법 제58조 (대지 안의 공지)"
+    },
+    {
+      "id": "LAW_61",
+      "type": "Law",
+      "name": "건축법 제61조 (일조 등의 확보를 위한 높이제한)"
+    },
+    {
+      "id": "LAW_64",
+      "type": "Law",
+      "name": "건축법 제64조 (승강기)"
+    },
+    {
+      "id": "DECREE_34",
+      "type": "Decree",
+      "name": "건축법 시행령 제34조 (직통계단의 설치)"
+    },
+    {
+      "id": "DECREE_35",
+      "type": "Decree",
+      "name": "건축법 시행령 제35조 (피난계단 및 특별피난계단)"
+    },
+    {
+      "id": "DECREE_46",
+      "type": "Decree",
+      "name": "건축법 시행령 제46조 (방화구획 등의 설치)"
+    },
+    {
+      "id": "DECREE_47",
+      "type": "Decree",
+      "name": "건축법 시행령 제47조 (방화에 장애가 되는 용도의 제한)"
+    },
+    {
+      "id": "DECREE_80_2",
+      "type": "Decree",
+      "name": "건축법 시행령 제80조의2 (대지 안의 공지)"
+    },
+    {
+      "id": "DECREE_86",
+      "type": "Decree",
+      "name": "건축법 시행령 제86조 (일조 등의 확보를 위한 높이제한)"
+    },
+    {
+      "id": "DECREE_89",
+      "type": "Decree",
+      "name": "건축법 시행령 제89조 (승용 승강기의 설치)"
+    },
+    {
+      "id": "RULE_8",
+      "type": "Rule",
+      "name": "피난방화규칙 제8조 (직통계단 보행거리 기준)"
+    },
+    {
+      "id": "RULE_9",
+      "type": "Rule",
+      "name": "피난방화규칙 제9조 (피난계단 및 특별피난계단의 구조)"
+    },
+    {
+      "id": "RULE_14",
+      "type": "Rule",
+      "name": "피난방화규칙 제14조 (방화구획의 설치기준)"
+    },
+    {
+      "id": "BUSAN_ORD_39_2",
+      "type": "Ordinance",
+      "name": "부산광역시 건축조례 제39조의2 (대지 안의 공지 [별표4])"
+    },
+    {
+      "id": "BUSAN_ORD_43",
+      "type": "Ordinance",
+      "name": "부산광역시 건축조례 제43조 (일조높이제한)"
+    }
+  ],
+  "edges": [
+    {
+      "source": "LAW_49",
+      "target": "DECREE_34",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "DECREE_34",
+      "target": "RULE_8",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "LAW_49",
+      "target": "DECREE_35",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "DECREE_35",
+      "target": "RULE_9",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "LAW_49",
+      "target": "DECREE_46",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "DECREE_46",
+      "target": "RULE_14",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "LAW_58",
+      "target": "DECREE_80_2",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "DECREE_80_2",
+      "target": "BUSAN_ORD_39_2",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "LAW_61",
+      "target": "DECREE_86",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "DECREE_86",
+      "target": "BUSAN_ORD_43",
+      "relation": "DELEGATES_TO"
+    },
+    {
+      "source": "LAW_64",
+      "target": "DECREE_89",
+      "relation": "DELEGATES_TO"
+    }
+  ]
+}

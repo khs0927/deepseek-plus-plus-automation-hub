@@ -1,0 +1,68 @@
+{
+  "project_meta": {
+    "project_id": "PRJ-2026-SEUMTER-001",
+    "project_title": "부산 사하구 근린생활시설 신축 인허가",
+    "application_type": "신축허가",
+    "target_platform": "세움터(EAIS)"
+  },
+  "architect": {
+    "office_name": "건축사사무소 지음",
+    "architect_name": "이동희",
+    "business_number": "604-08-99164",
+    "qualification_type": "건축사",
+    "location": "부산광역시 사하구",
+    "immutable_injected": true
+  },
+  "site_overview": {
+    "address": "부산광역시 사하구 신평동 123-45",
+    "site_area_sqm": 330.5,
+    "zoning_primary": "제2종일반주거지역",
+    "max_allowed_bcr_percent": 60,
+    "max_allowed_far_percent": 200
+  },
+  "building_overview": {
+    "main_usage": "제2종근린생활시설",
+    "main_structure": "철근콘크리트구조",
+    "building_area_sqm": 165.2,
+    "gross_floor_area_sqm": 495.6,
+    "far_floor_area_sqm": 495.6,
+    "calculated_bcr_percent": 49.98,
+    "calculated_far_percent": 149.95,
+    "max_height_m": 13.5,
+    "floors_above": 3,
+    "floors_below": 0,
+    "parking": {
+      "total_spaces": 4,
+      "self_park": 4
+    }
+  },
+  "floor_schedule": [
+    {
+      "floor_id": "1F",
+      "floor_name": "지상 1층",
+      "area_sqm": 165.2,
+      "main_usage": "제2종근린생활시설(일반음식점)",
+      "structure": "철근콘크리트구조"
+    },
+    {
+      "floor_id": "2F",
+      "floor_name": "지상 2층",
+      "area_sqm": 165.2,
+      "main_usage": "제2종근린생활시설(사무소)",
+      "structure": "철근콘크리트구조"
+    },
+    {
+      "floor_id": "3F",
+      "floor_name": "지상 3층",
+      "area_sqm": 165.2,
+      "main_usage": "제2종근린생활시설(학원)",
+      "structure": "철근콘크리트구조"
+    }
+  ],
+  "checklist_engine_binding": {
+    "total_rules": 156,
+    "target_tier1_rules": 144,
+    "target_tier2_rules": 12,
+    "zero_error_strict_mode": true
+  }
+}
