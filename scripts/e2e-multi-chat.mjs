@@ -96,7 +96,7 @@ async function main() {
     await panel.goto(`${extensionOrigin}/sidepanel.html`, { waitUntil: 'domcontentloaded', timeout: args.timeoutMs });
     await panel.waitForTimeout(500);
     const panelText = await panel.locator('body').innerText();
-    if (!/Projects|项目/i.test(panelText)) {
+    if (!/Projects|\u9879\u76ee/i.test(panelText)) {
       throw new Error('Sidepanel did not render the Projects entry point.');
     }
     console.log('Extension sidepanel rendered.');

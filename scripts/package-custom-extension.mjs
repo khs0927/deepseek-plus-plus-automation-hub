@@ -13,10 +13,15 @@ import { fileURLToPath } from 'node:url';
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const sourceDir = resolve(rootDir, 'dist/edge-mv3');
-const targetDir = resolve(rootDir, 'integrations/deepseek-pp-custom/extension');
+// --ci writes only to ignored dist/ so source packaging keeps a clean git
+// working tree. Normal user-facing package:custom keeps the historical path.
+const ciMode = process.argv.includes('--ci');
+const canonicalDir = resolve(rootDir, 'integrations/deepseek-pp-custom/extension');
+const targetDir = ciMode ? resolve(rootDir, 'dist/deepseek-pp-custom') : canonicalDir;
 const initializerPath = resolve(rootDir, 'integrations/deepseek-pp-custom/custom-default-initializer.js');
-const customDefaultsPath = resolve(targetDir, 'defaults.json');
+const customDefaultsPath = resolve(canonicalDir, 'defaults.json');
 const targetManifestPath = resolve(targetDir, 'manifest.json');
+const sourceManifestPath = resolve(canonicalDir, 'manifest.json');
 const verifyOnly = process.argv.includes('--verify');
 
 if (!existsSync(sourceDir)) {
@@ -27,8 +32,8 @@ if (!existsSync(initializerPath)) {
 }
 
 const sourceManifest = readJson(resolve(sourceDir, 'manifest.json'));
-const previousManifest = existsSync(targetManifestPath)
-  ? readJson(targetManifestPath)
+const previousManifest = existsSync(sourceManifestPath)
+  ? readJson(sourceManifestPath)
   : null;
 const defaults = existsSync(customDefaultsPath)
   ? readFileSync(customDefaultsPath)
