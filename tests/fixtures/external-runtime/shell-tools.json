@@ -39,6 +39,142 @@
     }
   },
   {
+    "name": "shell_batch",
+    "title": "Execute Bounded Shell Batch",
+    "description": "Execute up to 12 local shell commands in one MCP call. Sequential by default; explicitly independent commands may run in parallel (up to 4). Uses the existing shell_exec policy.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "jobs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "cwd": {
+                "type": "string"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 600000
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "parallel": {
+          "type": "boolean",
+          "description": "Default false. Enable only for independent commands."
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "stop_on_error": {
+          "type": "boolean",
+          "description": "Sequential mode only."
+        }
+      },
+      "required": [
+        "jobs"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
+  },
+  {
+    "name": "process_batch",
+    "title": "Execute Shell-Free Process Batch",
+    "description": "Run up to 12 direct executable/argv commands without shell startup or interpolation. Sequential by default; at most four independent commands may run concurrently.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "jobs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Executable name or absolute executable path; Windows .cmd/.bat unsupported."
+              },
+              "args": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "description": "Separate argument strings (no shell interpolation)."
+              },
+              "cwd": {
+                "type": "string"
+              },
+              "env": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 1000,
+                "maximum": 600000
+              }
+            },
+            "required": [
+              "file"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "parallel": {
+          "type": "boolean",
+          "description": "Only use for independent jobs. Defaults false."
+        },
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "stop_on_error": {
+          "type": "boolean",
+          "description": "Sequential batches only."
+        }
+      },
+      "required": [
+        "jobs"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "operation": "write",
+      "risk": "high"
+    }
+  },
+  {
     "name": "shell_status",
     "title": "Shell Host Status",
     "description": "Report host health, platform, shell, current working directory, and Node.js version.",
