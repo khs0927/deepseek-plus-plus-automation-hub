@@ -15,18 +15,22 @@ import { createSessionProvider } from './session-provider.mjs';
 import { createSkillToolHandlers } from './skill-provider.mjs';
 import { createTaskToolHandlers } from './task-provider.mjs';
 import { createDirectoryToolHandlers } from './directory-provider.mjs';
+import { createBatchToolHandlers } from './batch-provider.mjs';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageMetadata = readShellHostPackageMetadata();
 const logger = createHostLogger();
 const hostEnvironmentReady = Promise.resolve(initializeHostEnvironment(packageRoot, logger.logLine));
 
+const processHandlers = createProcessToolHandlers();
+const batchHandlers = createBatchToolHandlers({ shellHandler: processHandlers.find(tool => tool.name === 'shell_exec')?.handle });
 const sessionProvider = createSessionProvider({ logLine: logger.logLine });
 const taskProvider = createTaskToolHandlers({ logLine: logger.logLine });
 const router = createNativeRouter({
   toolDefinitions: TOOL_DEFINITIONS,
   toolHandlerGroups: [
-    createProcessToolHandlers(),
+    processHandlers,
+    batchHandlers,
     createSkillToolHandlers(),
     createPickerToolHandlers(),
     createFileToolHandlers({ logLine: logger.logLine }),
