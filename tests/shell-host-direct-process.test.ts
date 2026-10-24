@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'node:crypto';
 // @ts-ignore - Native Host executable modules are .mjs.
 import { createDirectProcessHandler } from '../packages/shell-host/native/direct-process-provider.mjs';
 // @ts-ignore - Native Host executable modules are .mjs.
@@ -59,6 +60,20 @@ describe('DeepSeek++ Custom direct-process fast path', () => {
     expect(result.structuredContent.data.jobs[0].stdoutTruncated).toBe(true);
     expect(result.structuredContent.data.jobs[0].stderrTruncated).toBe(true);
     expect(Buffer.byteLength(JSON.stringify(result), 'utf8')).toBeLessThan(1024 * 1024);
+  });
+
+  it('returns a SHA-256 digest of complete output even when the preview is truncated', async () => {
+    const output = '한글🚀'.repeat(30000);
+    const result = await direct({
+      file: process.execPath,
+      args: ['-e', 'process.stdout.write("한글🚀".repeat(30000))'],
+    });
+    expect(result.structuredContent.ok).toBe(true);
+    expect(result.structuredContent.data.truncated).toBe(true);
+    expect(result.structuredContent.data.stdoutBytes).toBe(Buffer.byteLength(output, 'utf8'));
+    expect(result.structuredContent.data.stdoutSha256)
+      .toBe(createHash('sha256').update(output).digest('hex'));
+    expect(Buffer.byteLength(result.structuredContent.data.stdout, 'utf8')).toBeLessThanOrEqual(65536);
   });
 
   it('does not run shell commands in direct mode', async () => {
