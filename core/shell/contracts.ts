@@ -7,6 +7,7 @@ export const OFFICECLI_BIN_PATH = 'officecli';
 
 export const SHELL_TOOL_NAMES = [
   'shell_exec',
+  'shell_batch',
   'shell_status',
   'python_status',
   'python_exec',
@@ -39,6 +40,12 @@ export const SHELL_TOOL_SPECS: readonly ShellToolSpec[] = [
     name: 'shell_exec',
     title: '执行命令',
     description: '在本地系统执行 shell 命令，返回 stdout、stderr 和退出码。',
+    risk: 'high',
+  },
+  {
+    name: 'shell_batch',
+    title: '批量执行 Shell 命令',
+    description: '单次调用批量执行最多 12 个本地命令。默认按顺序运行；独立命令可并行执行（最多 4 个）。',
     risk: 'high',
   },
   {
