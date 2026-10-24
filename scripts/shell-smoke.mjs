@@ -132,6 +132,8 @@ await testMethod('tools/list', 'tools/list', undefined, (res) => {
   const names = res.result.tools.map(t => t.name);
   const requiredTools = [
     'shell_exec',
+    'shell_batch',
+    'process_batch',
     'shell_status',
     'python_status',
     'python_exec',
