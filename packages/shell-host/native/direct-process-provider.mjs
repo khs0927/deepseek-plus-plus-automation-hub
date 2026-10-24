@@ -38,13 +38,19 @@ export function createDirectProcessHandler({ spawnProcess = spawn, terminate = t
     return new Promise(resolve => {
       const stdout = []; const stderr = [];
       let stdoutBytes = 0; let stderrBytes = 0;
+      let stdoutRetained = 0; let stderrRetained = 0;
       let completed = false; let timedOut = false; let cancelled = false;
       let terminationTimer; let stopping = false;
       const collect = (chunks, stream) => chunk => {
-        if (stream === 'stdout') stdoutBytes += chunk.length;
+        const isStdout = stream === 'stdout';
+        if (isStdout) stdoutBytes += chunk.length;
         else stderrBytes += chunk.length;
-        const buffered = chunks.reduce((total, part) => total + part.length, 0);
-        if (buffered < MAX_STREAM_BYTES) chunks.push(chunk.subarray(0, MAX_STREAM_BYTES - buffered));
+        const retained = isStdout ? stdoutRetained : stderrRetained;
+        if (retained >= MAX_STREAM_BYTES) return;
+        const slice = chunk.subarray(0, MAX_STREAM_BYTES - retained);
+        chunks.push(slice);
+        if (isStdout) stdoutRetained += slice.length;
+        else stderrRetained += slice.length;
       };
       const finish = (exitCode, processSignal, startupError) => {
         if (completed) return;
