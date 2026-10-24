@@ -32,7 +32,7 @@ describe('createShellMcpPresetInput', () => {
     // tools so a fresh install cannot execute commands until the user opts in.
     const preset = createShellMcpPresetInput();
     const allowlisted = new Set(preset.allowlist?.toolNames ?? []);
-    const gatedTools = ['shell_exec', 'python_exec', 'local_file_write', 'local_file_read', 'local_file_stat', 'shell_session_begin', 'shell_session_exec', 'shell_session_end'];
+    const gatedTools = ['shell_exec', 'shell_batch', 'process_batch', 'python_exec', 'local_file_write', 'local_file_read', 'local_file_stat', 'shell_session_begin', 'shell_session_exec', 'shell_session_end'];
     for (const tool of gatedTools) {
       expect(allowlisted.has(tool as string)).toBe(false);
     }
