@@ -8,6 +8,7 @@ export const OFFICECLI_BIN_PATH = 'officecli';
 export const SHELL_TOOL_NAMES = [
   'shell_exec',
   'shell_batch',
+  'process_batch',
   'shell_status',
   'python_status',
   'python_exec',
@@ -46,6 +47,12 @@ export const SHELL_TOOL_SPECS: readonly ShellToolSpec[] = [
     name: 'shell_batch',
     title: '批量执行 Shell 命令',
     description: '单次调用批量执行最多 12 个本地命令。默认按顺序运行；独立命令可并行执行（最多 4 个）。',
+    risk: 'high',
+  },
+  {
+    name: 'process_batch',
+    title: '直接 실행 파일 일괄 실행',
+    description: '셸을 거치지 않고 파일/인수를 분리해 실행합니다. 한 번에 최대 12개, 독립 작업 4개 병렬.',
     risk: 'high',
   },
   {
