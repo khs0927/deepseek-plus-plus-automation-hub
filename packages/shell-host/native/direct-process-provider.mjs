@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { homedir, platform } from 'node:os';
 import { createChildEnv } from './os-adapter.mjs';
 import { attachProcessToJobObject, terminateProcessTree } from './process-lifecycle.mjs';
@@ -39,12 +40,14 @@ export function createDirectProcessHandler({ spawnProcess = spawn, terminate = t
       const stdout = []; const stderr = [];
       let stdoutBytes = 0; let stderrBytes = 0;
       let stdoutRetained = 0; let stderrRetained = 0;
+      const stdoutHash = createHash('sha256');
+      const stderrHash = createHash('sha256');
       let completed = false; let timedOut = false; let cancelled = false;
       let terminationTimer; let stopping = false;
       const collect = (chunks, stream) => chunk => {
         const isStdout = stream === 'stdout';
-        if (isStdout) stdoutBytes += chunk.length;
-        else stderrBytes += chunk.length;
+        if (isStdout) { stdoutBytes += chunk.length; stdoutHash.update(chunk); }
+        else { stderrBytes += chunk.length; stderrHash.update(chunk); }
         const retained = isStdout ? stdoutRetained : stderrRetained;
         if (retained >= MAX_STREAM_BYTES) return;
         const slice = chunk.subarray(0, MAX_STREAM_BYTES - retained);
@@ -64,6 +67,7 @@ export function createDirectProcessHandler({ spawnProcess = spawn, terminate = t
           stdout: Buffer.concat(stdout).toString('utf8'),
           stderr: startupError ?? Buffer.concat(stderr).toString('utf8'),
           stdoutBytes, stderrBytes,
+          stdoutSha256: stdoutHash.digest('hex'), stderrSha256: stderrHash.digest('hex'),
           truncated: stdoutBytes > MAX_STREAM_BYTES || stderrBytes > MAX_STREAM_BYTES,
           timedOut, cancelled,
         };
