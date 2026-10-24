@@ -6,6 +6,7 @@ const LOG_META_FILENAME = 'shell-mcp-host.log-meta';
 export const REQUIRED_HOST_RUNTIME_FILES = [
   'contracts.mjs',
   'batch-provider.mjs',
+  'direct-process-provider.mjs',
   'file-provider.mjs',
   'framing.mjs',
   'logger.mjs',
