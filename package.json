@@ -89,6 +89,7 @@
   "overrides": {
     "tmp": "^0.2.7",
     "uuid": "^11.1.1",
-    "@earendil-works/pi-ai": "0.83.0"
+    "@earendil-works/pi-ai": "0.83.0",
+    "zod": "4.6.7"
   }
 }
