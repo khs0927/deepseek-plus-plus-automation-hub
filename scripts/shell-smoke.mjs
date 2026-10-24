@@ -198,6 +198,22 @@ if (pythonAvailable) {
   });
 }
 
+await testMethod('tools/call shell_batch (sequential)', 'tools/call', {
+  name: 'shell_batch',
+  arguments: { jobs: [{ command: 'echo fast_batch_ok' }] },
+}, (res) => {
+  assert(res.result?.structuredContent?.ok === true, 'shell_batch must succeed');
+  assert(res.result.structuredContent.data.jobs[0].stdout.includes('fast_batch_ok'), 'expected batch output');
+});
+
+await testMethod('tools/call process_batch (argv without shell)', 'tools/call', {
+  name: 'process_batch',
+  arguments: { jobs: [{ file: process.execPath, args: ['--version'] }] },
+}, (res) => {
+  assert(res.result?.structuredContent?.ok === true, 'process_batch must succeed');
+  assert(res.result.structuredContent.data.jobs[0].stdout.includes(process.version), 'expected node version');
+});
+
 await testMethod('tools/call shell_exec (echo)', 'tools/call', {
   name: 'shell_exec',
   arguments: { command: 'echo hello_world' },
