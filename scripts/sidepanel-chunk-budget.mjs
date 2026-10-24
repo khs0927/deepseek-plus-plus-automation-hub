@@ -98,8 +98,14 @@ if (requestedBrowsers.some((browser) => !browser)) {
 // Refreshed for 6 new Shell tools (task_spawn/status/kill/list, local_dir_list/search):
 // +1414 raw bytes added to initial-shell and first-chat-screen module graphs.
 // Initial shell raw: 379706, gzip: 116058. First chat screen raw: 409962, gzip: 126096.
+// Custom v2, CI #131 Node 22.23.3 after patched Zod 4.6.7:
+// measured initial shell 386911 raw / 117921 gzip. The previous 1.14.0
+// baseline excluded the upgraded dependency and tool catalog. Keep the
+// measured raw cap exact and preserve only the existing 256B gzip allowance.
+// First-chat budget below allows the observed 7.2KB static-graph change with
+// a <1% measurement envelope; other route budgets remain unchanged.
 const BASELINE = Object.freeze({
-  initialShell: { raw: 379_706, gzip: 116_058 },
+  initialShell: { raw: 386_911, gzip: 117_921 },
   routeChunks: {
     ChatPage: { raw: 134_938, gzip: 40_056 },
     CapabilitiesPage: { raw: 160_137, gzip: 35_259 },
@@ -131,7 +137,7 @@ const BUDGET = Object.freeze({
     raw: BASELINE.initialShell.raw,
     gzip: BASELINE.initialShell.gzip + GZIP_ENCODER_VARIANCE_BYTES,
   },
-  firstChatScreen: { raw: 409_962, gzip: 126_600 },
+  firstChatScreen: { raw: 418_000, gzip: 130_000 },
   richRendererIncrement: { raw: 120_000, gzip: 36_000 },
   routeChunks: {
     ChatPage: { raw: 25_000, gzip: 8_000 },
