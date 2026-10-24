@@ -93,6 +93,29 @@ const TOOL_DEFINITIONS = [
     annotations: { operation: 'write', risk: 'high' },
   },
   {
+    name: 'shell_batch',
+    title: 'Execute Bounded Shell Batch',
+    description: 'Execute up to 12 local shell commands in one MCP call. Sequential by default; explicitly independent commands may run in parallel (up to 4). Uses the existing shell_exec policy.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        jobs: { type: 'array', minItems: 1, maxItems: 12, items: {
+          type: 'object', properties: {
+            command: { type: 'string', minLength: 1 },
+            cwd: { type: 'string' },
+            env: { type: 'object', additionalProperties: { type: 'string' } },
+            timeout_ms: { type: 'integer', minimum: 1000, maximum: 600000 },
+          }, required: ['command'], additionalProperties: false,
+        } },
+        parallel: { type: 'boolean', description: 'Default false. Enable only for independent commands.' },
+        concurrency: { type: 'integer', minimum: 1, maximum: 4 },
+        stop_on_error: { type: 'boolean', description: 'Sequential mode only.' },
+      },
+      required: ['jobs'], additionalProperties: false,
+    },
+    annotations: { operation: 'write', risk: 'high' },
+  },
+  {
     name: 'shell_status',
     title: 'Shell Host Status',
     description: 'Report host health, platform, shell, current working directory, and Node.js version.',
