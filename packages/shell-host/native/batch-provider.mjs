@@ -6,6 +6,7 @@ const MAX_FIELD_CHARS = 2048; // Prevent 1 MB Chrome Native Messaging response f
 
 export function createBatchToolHandlers({ shellHandler, directHandler, maxConcurrency = MAX_CONCURRENCY }) {
   if (typeof shellHandler !== 'function') throw new TypeError('shellHandler is required');
+  const admission = createAdmissionGate(Math.max(1, Math.min(MAX_CONCURRENCY, maxConcurrency)), 32);
   const handlers = [{ name: 'shell_batch', handle: createBatch(shellHandler, 'shell') }];
   if (directHandler) {
     if (typeof directHandler !== 'function') throw new TypeError('directHandler must be a function');
@@ -40,14 +41,18 @@ export function createBatchToolHandlers({ shellHandler, directHandler, maxConcur
           const index = next++;
           const start = Date.now();
           try {
-            const response = await execute(jobs[index], { signal });
+            const response = await admission.run(() => execute(jobs[index], { signal }), signal);
             const data = response?.structuredContent?.data ?? {};
             const ok = response?.structuredContent?.ok === true && response.isError !== true;
             const stdout = boundText(data.stdout);
             const stderr = boundText(data.stderr ?? (ok ? '' : response?.content?.[0]?.text ?? 'Command failed'));
             results[index] = {
               index, ok, exitCode: data.exitCode ?? null, stdout: stdout.text, stderr: stderr.text,
-              stdoutTruncated: stdout.truncated, stderrTruncated: stderr.truncated,
+              stdoutTruncated: stdout.truncated || data.truncated === true, stderrTruncated: stderr.truncated || data.truncated === true,
+              ...(typeof data.stdoutSha256 === 'string' ? { stdoutSha256: data.stdoutSha256 } : {}),
+              ...(typeof data.stderrSha256 === 'string' ? { stderrSha256: data.stderrSha256 } : {}),
+              ...(Number.isInteger(data.stdoutBytes) ? { stdoutBytes: data.stdoutBytes } : {}),
+              ...(Number.isInteger(data.stderrBytes) ? { stderrBytes: data.stderrBytes } : {}),
               timedOut: data.timedOut === true, cancelled: data.cancelled === true,
               durationMs: Date.now() - start,
             };
@@ -95,4 +100,70 @@ function boundText(value) {
 function failure(message) {
   return { isError: true, structuredContent: { ok: false, error: message },
     content: [{ type: 'text', text: message }] };
+}
+
+
+// One FIFO admission gate per Native Host instance. Multiple MCP requests
+// cannot accidentally spawn unbounded process batches on the same machine.
+// Queueing is bounded and abortable, with no polling or extra subprocess.
+export function createAdmissionGate(maxActive = 4, maxWaiting = 32) {
+  if (!Number.isInteger(maxActive) || maxActive < 1 ||
+      !Number.isInteger(maxWaiting) || maxWaiting < 0) {
+    throw new RangeError('Invalid admission capacity.');
+  }
+  let active = 0;
+  const waiting = [];
+  function dispatch() {
+    while (active < maxActive && waiting.length > 0) {
+      const task = waiting.shift();
+      task.signal?.removeEventListener('abort', task.onAbort);
+      if (task.signal?.aborted) {
+        task.reject(new Error('Command cancelled while queued.'));
+        continue;
+      }
+      active += 1;
+      task.resolve(releaseOnce());
+    }
+  }
+  function releaseOnce() {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      active -= 1;
+      dispatch();
+    };
+  }
+  async function acquire(signal) {
+    if (signal?.aborted) throw new Error('Command cancelled while queued.');
+    if (active < maxActive && waiting.length === 0) {
+      active += 1;
+      return releaseOnce();
+    }
+    if (waiting.length >= maxWaiting) throw new Error('Host execution queue capacity reached.');
+    return new Promise((resolve, reject) => {
+      const onAbort = () => {
+        const index = waiting.indexOf(waiter);
+        if (index >= 0) waiting.splice(index, 1);
+        signal?.removeEventListener('abort', onAbort);
+        reject(new Error('Command cancelled while queued.'));
+      };
+      const waiter = { resolve, reject, signal, onAbort };
+      waiting.push(waiter);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) onAbort();
+    });
+  }
+  return Object.freeze({
+    async run(task, signal) {
+      const release = await acquire(signal);
+      try {
+        if (signal?.aborted) throw new Error('Command cancelled while queued.');
+        return await task();
+      } finally {
+        release();
+      }
+    },
+    stats() { return { active, waiting: waiting.length, maxActive, maxWaiting }; },
+  });
 }
